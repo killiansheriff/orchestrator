@@ -28,7 +28,7 @@ class KIMPotential(Potential):
         kim_id: str,
         species: list[str],
         model_driver: str,
-        kim_api: str,
+        kim_api: str = 'kim-api-collections-management',
         kim_item_type: str = "portable-model",
         model_name_prefix: str = "KIM_Potential_Orchestrator_Generated",
         param_files: list = None,

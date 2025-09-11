@@ -89,7 +89,7 @@ class Potential(Recorder, ABC):
         kim_id: Optional[str],
         species: list[str],
         model_driver: str,
-        kim_api: str,
+        kim_api: str = 'kim-api-collections-management',
         kim_item_type: str = "simulator-model",
         model_name_prefix: str = "Potential",
         param_files: Optional[list] = None,
@@ -831,22 +831,31 @@ class Potential(Recorder, ABC):
             new version. |default| ``None``
         :type metadata_dict: dict
         """
+
+        # only create a new version if the requested version
+        # is the latest version of the item
+        # otherwise fork the requested version into a new item
+        existing_kimkit_item = mongodb.find_item_by_kimcode(kim_id)
+        if existing_kimkit_item["latest"] is False:
+            comment = 'Forking instead of upversioning old version'
+            self._fork_potential(kim_id,
+                                 metadata_dict,
+                                 provenance_comments=comment)
+            return
+
         # don't overwrite the working model, if any
         if self.model is None:
             self.load_potential()
 
         with tempfile.TemporaryDirectory() as path:
 
-            # write files to a temporary path,
-            #  and create a tar archive from them
-            self.model.write_kim_model(path)
-            tmp_tar_archive = os.path.join(path, kim_id + ".txz")
-            with tarfile.open(tmp_tar_archive, "w:xz") as tar:
-                tar.add(path, arcname=kim_id)
+            tmp_txz_path = os.path.join(path, 'tmp.txz')
 
-            # load the tar archive into memory as a tarfile.TarFile object
-            tar_file = os.path.join(path, kim_id + ".txz")
-            with tarfile.open(tar_file) as tar:
+            with tarfile.open(tmp_txz_path, mode='w:xz') as tar:
+                for file in self.potential_files:
+                    tar.add(file, arcname=os.path.split(file)[1])
+
+            with tarfile.open(tmp_txz_path) as tar:
 
                 if metadata_dict:
 
@@ -855,7 +864,6 @@ class Potential(Recorder, ABC):
                                           metadata_update_dict=metadata_dict)
 
                 else:
-
                     models.version_update(kim_id, tar)
 
         # increment the version of the kim_id
@@ -917,13 +925,14 @@ class Potential(Recorder, ABC):
             # write files to a temporary path,
             # and create a tar archive from them
             self.model.write_kim_model(path)
-            tmp_tar_archive = os.path.join(path, self.kim_id + ".txz")
-            with tarfile.open(tmp_tar_archive, "w:xz") as tar:
-                tar.add(path, arcname=self.kim_id)
 
-            # load the tar archive into memory as a tarfile.TarFile object
-            tar_file = os.path.join(path, self.kim_id + ".txz")
-            with tarfile.open(tar_file) as tar:
+            tmp_txz_path = os.path.join(path, 'tmp.txz')
+
+            with tarfile.open(tmp_txz_path, mode='w:xz') as tar:
+                for file in self.potential_files:
+                    tar.add(file, arcname=os.path.split(file)[1])
+
+            with tarfile.open(tmp_txz_path) as tar:
 
                 models.fork(self.kim_id,
                             tar,

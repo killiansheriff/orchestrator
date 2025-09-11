@@ -32,8 +32,8 @@ class FitSnapPotential(Potential):
         self,
         species: list[str],
         model_driver: str,
-        kim_api: str,
         settings_path: str,
+        kim_api: str = 'kim-api-collections-management',
         kim_item_type: str = "simulator-model",
         parameter_path: str = None,
         kim_id: str = None,
@@ -433,12 +433,16 @@ class FitSnapPotential(Potential):
             model_driver=model_driver,
             species=species,
             work_dir=os.path.split(self.parameter_path)[0],
-            previous_item_name=previous_item_name)
+            previous_item_name=previous_item_name,
+        )
 
         return self.kim_id
 
-    def _sort_param_files(self, param_files: str,
-                          kim_item_type: str) -> list[str]:
+    def _sort_param_files(
+        self,
+        param_files: str,
+        kim_item_type: str,
+    ) -> list[str]:
         """
         Helper function to sort param files for FitSnap
 
@@ -482,7 +486,9 @@ class FitSnapPotential(Potential):
         if len(snapmod_file) >= 1:
             for i in range(len(snapmod_file)):
                 added_hybridparam = self._add_hybridparam_file_if_required(
-                    snapmod_file[i], kim_item_type)
+                    snapmod_file[i],
+                    kim_item_type,
+                )
                 if added_hybridparam is not None:
                     param_files_sorted = param_files_sorted + added_hybridparam
                     break
@@ -495,8 +501,11 @@ class FitSnapPotential(Potential):
 
         return param_files_sorted
 
-    def _add_hybridparam_file_if_required(self, fitsnap_mod_file: str,
-                                          kim_item_type: str) -> str:
+    def _add_hybridparam_file_if_required(
+        self,
+        fitsnap_mod_file: str,
+        kim_item_type: str,
+    ) -> str:
         """Parse the .mod file associated with this potential,
         and use it to create a .hybridparam file if required.
 
@@ -712,28 +721,18 @@ class FitSnapPotential(Potential):
             # should be in the fitsnap param files
             good_extensions = ("snapparam", "snapcoeff", "hybridparam", "pair")
 
+            filtered_param_files = []
+
             for file in param_files:
-                needs_removed = True
                 for extension in good_extensions:
                     if extension in file:
-                        needs_removed = False
-                if needs_removed:
-                    param_files.remove(file)
+                        filtered_param_files.append(file)
 
-            # these file extensions
-            # should never be a part of any param_files
-            bad_extensions = ("txt", "edn", "md")
-            for file in param_files:
-                if file[-3:] in bad_extensions:
-                    param_files.remove(file)
-                if file[-2:] in bad_extensions:
-                    param_files.remove(file)
-
-            self.param_files = param_files
+            self.param_files = filtered_param_files
         except Exception:
             raise
 
-        return param_files
+        return filtered_param_files
 
     def _write_smspec(self,
                       potential_type='snap',
