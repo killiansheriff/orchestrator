@@ -15,3 +15,6 @@ Lawrence Livermore National Security, LLC. The views and opinions of authors
 expressed herein do not necessarily state or reflect those of the United
 States Government or Lawrence Livermore National Security, LLC, and shall not
 be used for advertising or product endorsement purposes.
+
+This work includes contributions from the University of Minnesota, Twin Cities
+This work includes contributions from Brigham Young University
