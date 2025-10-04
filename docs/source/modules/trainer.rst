@@ -12,10 +12,12 @@ be specific to a certain model or class of model, or may be universal.
 List of Available Trainers
 --------------------------
 
-There are currently two primary groups of trainers available:
+There are currently several primary groups of trainers available:
 the :class:`~orchestrator.trainer.fitsnap.FitSnapTrainer`, which is used with the
-:class:`~orchestrator.potential.fitsnap.FitSnapPotential` potential, and the
-:class:`~orchestrator.potential.trainer.kliff.kliff_dunn_trainer.DUNNTrainer` and
+:class:`~orchestrator.potential.fitsnap.FitSnapPotential` potential,
+the :class:`~orchestrator.trainer.chimes.ChIMESTrainer`, which is used with the
+:class:`~orchestrator.potential.chimes.ChIMESPotential` potential, and
+the :class:`~orchestrator.potential.trainer.kliff.kliff_dunn_trainer.DUNNTrainer` and
 the :class:`~orchestrator.potential.trainer.kliff.kliff_parametric_trainer.ParametricModelTrainer`,
 which are used with the :class:`~orchestrator.potential.dnn.KliffBPPotential` and the
 generic :class:`~orchestrator.potential.kim.KIMPotential` potentials.
@@ -109,9 +111,10 @@ Inheritance Graph
 -----------------
 
 .. inheritance-diagram::
+   orchestrator.trainer.chimes
    orchestrator.trainer.factory
+   orchestrator.trainer.fitsnap
    orchestrator.trainer.kliff.kliff
    orchestrator.trainer.kliff.kliff_dunn_trainer
    orchestrator.trainer.kliff.kliff_parametric_trainer
-   orchestrator.trainer.fitsnap
    :parts: 3

@@ -31,6 +31,15 @@ FitSNAP Potential
    :show-inheritance:
 
 
+ChIMES Potential
+^^^^^^^^^^^^^^^^
+
+.. automodule:: orchestrator.potential.chimes
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+
 KIM Potential
 ^^^^^^^^^^^^^
 

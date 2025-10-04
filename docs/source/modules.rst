@@ -17,6 +17,7 @@ These modules coordinate the usage of one or more atomic modules for both simple
 .. toctree::
    :maxdepth: 1
 
+   modules/augmentor
    modules/target_property
 
 Atomic Modules
@@ -34,7 +35,6 @@ These modules are considered "atomic" in that they serve single functionalities 
    modules/computer
    modules/descriptor
    modules/score
-   modules/augmentor
 
 Utility Modules
 ---------------
@@ -68,8 +68,7 @@ Orchestrator Inheritance Graph
    orchestrator.oracle.factory
    orchestrator.oracle.kim
    orchestrator.oracle.lammps
-   orchestrator.oracle.aiida.espresso
-   orchestrator.oracle.aiida.vasp
+   orchestrator.potential.chimes
    orchestrator.potential.dnn
    orchestrator.potential.factory
    orchestrator.potential.fitsnap
@@ -83,6 +82,7 @@ Orchestrator Inheritance Graph
    orchestrator.target_property.factory
    orchestrator.target_property.kimrun
    orchestrator.target_property.melting_point
+   orchestrator.trainer.chimes
    orchestrator.trainer.factory
    orchestrator.trainer.fitsnap
    orchestrator.trainer.kliff.kliff_dunn_trainer

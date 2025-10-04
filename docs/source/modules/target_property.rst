@@ -65,7 +65,7 @@ KIMRun
 This class uses `KIM Tests <https://openkim.org/doc/evaluation/kim-tests/>`_
 to calculate material properties. This is done by invoking the
 `KIM Developer Platform <https://openkim.org/doc/evaluation/kim-developer-platform/>`_
-as a Singularity image.
+as a Podman (default) or Singularity image.
 :func:`~orchestrator.target_property.kimrun.KIMRun.calculate_property`
 has one required argument, ``get_test_result_args``. This is a dictionary of
 keyword arguments that will be passed to a ``get_test_result`` KIM simplified
@@ -96,7 +96,7 @@ use any Simulator or Storage.
 Additionally, ``KIMRun`` may be invoked directly. The below example will
 be used to demonstrate details of usage::
 
-    from orchestrator.target_property import KIMRun
+    from orchestrator.target_property.kimrun import KIMRun
 
     my_kimrun = KIMRun()
 

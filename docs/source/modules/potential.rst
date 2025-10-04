@@ -11,8 +11,8 @@ potentials will work with all trainers.
 Potentials can be initialized with a kim_id, a list of which atomic species the potential supports,
 a model-driver needed to run the physics calculations of the potential (if required), and an optional list of
 the potential's parameter files, which if not provided will be initialized based on reasonable defaults
-for each potential type. Presently, KIM potentials from openkim.org, FitSNAP potentials, and DNN-Potentials
-are supported by the potential module, with support being added soon for ChIMES potentials.
+for each potential type. Presently, KIM potentials from openkim.org, FitSNAP potentials, ChIMES potentials, and DNN-Potentials
+are supported by the potential module.
 
 The abstract base class :class:`~.Potential` provides the standard interface
 for all of the concrete implementations.
@@ -241,10 +241,8 @@ trainer.train(...per_atom_weights=False). ACE models will likely train
 but not be uploaded to kimkit correctly just yet, but this is next on
 the TODO list.
 
-Currently, orchestrator will comment out the wselfallflag and switchinnerflag
-lines in .snapparam files for compatibility with older versions of
-the kim model and LAMMPS. Trying to fit with those options enabled will
-not perform as expected.
+ChIMES:
+In addition to the standard parameters required by all potentials -- species, model_driver, and kim_api -- the ChIMES potential requires two additional parameter sets: polynomial_orders and cutoff_distances. The polynomial_orders parameter specifies the polynomial orders for two-body, three-body, and four-body interactions, controlling the model's complexity (higher values yield a more complex model). The cutoff_distances parameter defines the corresponding distance cutoffs for these interactions. For more details, refer to the documentation at: https://chimes-lsq.readthedocs.io/en/latest/chimes_overview.html
 
 KIMPotential:
 This loads an existing KIM potential, so its first required argument is
@@ -259,8 +257,9 @@ Inheritance Graph
 -----------------
 
 .. inheritance-diagram::
-   orchestrator.potential.factory
-   orchestrator.potential.kim
+   orchestrator.potential.chimes
    orchestrator.potential.dnn
+   orchestrator.potential.factory
    orchestrator.potential.fitsnap
+   orchestrator.potential.kim
    :parts: 3

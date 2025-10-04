@@ -39,9 +39,17 @@ Parametric model sub-class
    :show-inheritance:
 
 FitSnap class
-^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^
 
 .. autoclass:: orchestrator.trainer.fitsnap.FitSnapTrainer
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+ChIMES class
+^^^^^^^^^^^^
+
+.. autoclass:: orchestrator.trainer.chimes.ChIMESTrainer
    :members:
    :undoc-members:
    :show-inheritance:

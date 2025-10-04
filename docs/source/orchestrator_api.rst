@@ -11,6 +11,7 @@ Coordinating Modules
 
 .. toctree::
 
+   api_docs/orchestrator.augmentor
    api_docs/orchestrator.target_property
 
 Atomic Modules
@@ -21,7 +22,6 @@ Atomic Modules
    api_docs/orchestrator.computer
    api_docs/orchestrator.computer.descriptor
    api_docs/orchestrator.computer.score
-   api_docs/orchestrator.augmentor
    api_docs/orchestrator.oracle
    api_docs/orchestrator.potential
    api_docs/orchestrator.simulator

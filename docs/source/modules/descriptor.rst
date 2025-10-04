@@ -35,6 +35,13 @@ Available Implementations
    distances with average triplet bond lengths. The descriptor dimensionality is
    ``(2 * num_nearest_neighbors) - 1``.
 
+   .. note::
+
+      QUESTS also supports multi-element descriptor calculations, if the
+      ``species`` keyword is set as the list of present elements. Bandwidth
+      selection criteria based on these descriptors is still under active
+      investigation (relevant if used in Score calculations).
+
 Usage Example
 -------------
 
