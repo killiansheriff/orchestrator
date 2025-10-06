@@ -11,7 +11,7 @@ boundary p p p
 lattice fcc 1.0
 region box block 0 10 0 10 0 10 units lattice
 create_box 1 box
-mass 1 28.75
+mass 1 180.948
 create_atoms 1 single 0.5 0.5 0.5
 
 # Specify the KIM interactions

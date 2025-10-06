@@ -39,7 +39,7 @@
             "wait_freq":20
         }
     },
-    "path_type":"04_unit_test",
+    "path_type":"07_unit_test",
     "dataset_handle":"<TEST_Si_DATASET_HANDLE>",
     "job_details":{
         "nodes":1,

@@ -16,6 +16,8 @@ STORAGE_CREDENTIAL_PATH="/PATH/TO/unittests_colabfit_credentials.json"
 
 ASYNCH_WORKFLOW="SLURM"
 ASYNCH_WORKFLOW_HYBRID="SLURMTOLSF"
+CHIMES_LSQ="/PATH/TO/chimes_lsq/build/chimes_lsq"
+CHIMES_LSQ_PY="/PATH/TO/chimes_lsq/src/chimes_lsq.py"
 HPC_ACCOUNT='ACCOUNT_STRING'
 HPC_QUEUE='QUEUE_NAME'
 KIM_API='kim-api-collections-management'
@@ -109,6 +111,8 @@ substitute_inputs() {
     find ./ -name "*.json" | xargs sed -i.bak \
             -e "s|<ASYNCH_WORKFLOW>|${ASYNCH_WORKFLOW}|g" \
             -e "s|<ASYNCH_WORKFLOW_HYBRID>|${ASYNCH_WORKFLOW_HYBRID}|g" \
+            -e "s|<CHIMES_LSQ>|${CHIMES_LSQ}|g" \
+            -e "s|<CHIMES_LSQ_PY>|${CHIMES_LSQ_PY}|g" \
             -e "s|<HPC_ACCOUNT>|${HPC_ACCOUNT}|g" \
             -e "s|<HPC_QUEUE>|${HPC_QUEUE}|g" \
             -e "s|<INSTALL_PATH>|${INSTALL_PATH}|g" \

@@ -46,10 +46,12 @@ def trainer_potential_combined_test(input_file: str) -> bool:
     if type(per_atom_weights) is str:
         per_atom_weights = loadtxt(input_directory + '/' + per_atom_weights)
 
-    # change kim_id to avoid conflicts with system potentials
-    if potential.kim_id == "SW_StillingerWeber_1985_Si__MO_405512056662_006":
-        potential.generate_new_kim_id(id_prefix="Test_KIMPotential",
-                                      kim_item_type="portable-model")
+    # # change kim_id to avoid conflicts with system potentials
+    # if potential.kim_id == "SW_StillingerWeber_1985_Si__MO_405512056662_006":
+    if potential.model_type != 'dnn':
+        potential.generate_new_kim_id(id_prefix="Test_KIMPotential")
+    else:
+        potential.generate_new_kim_id(id_prefix="Test_KIMPotential")
 
     _, training_loss = trainer.train(
         test_inputs.get('path_type'),
@@ -188,13 +190,10 @@ def potential_kimkit_combined_test(input_file: str) -> bool:
             # supply human-readable prefix and one will be assigned
             # try:
             if potential.model_type == "fitsnap":
-                kim_item_type = 'simulator-model'
-                potential.generate_new_kim_id(id_prefix=example_kimcode_prefix,
-                                              kim_item_type=kim_item_type)
+                potential.generate_new_kim_id(id_prefix=example_kimcode_prefix)
                 try:
                     example_kimcode = potential.save_potential_files(
                         kim_id=potential.kim_id,
-                        kim_item_type=kim_item_type,
                         model_driver=driver_test_kimcode)
 
                 except cf.KimCodeAlreadyInUseError:
@@ -202,14 +201,11 @@ def potential_kimkit_combined_test(input_file: str) -> bool:
 
                     example_kimcode = potential.save_potential_files(
                         kim_id=potential.kim_id,
-                        kim_item_type=kim_item_type,
                         model_driver=driver_test_kimcode)
             # except AttributeError:
             elif potential.model_type == "dnn":
                 potential.model_driver = 'no-driver'
-                kim_item_type = 'simulator-model'
-                potential.generate_new_kim_id(id_prefix=example_kimcode_prefix,
-                                              kim_item_type=kim_item_type)
+                potential.generate_new_kim_id(id_prefix=example_kimcode_prefix)
                 try:
                     example_kimcode = potential.save_potential_files(
                         model_name_prefix=example_kimcode_prefix)
@@ -221,23 +217,19 @@ def potential_kimkit_combined_test(input_file: str) -> bool:
                         model_name_prefix=example_kimcode_prefix)
 
             else:
-                kim_item_type = 'portable-model'
-                potential.generate_new_kim_id(id_prefix=example_kimcode_prefix,
-                                              kim_item_type=kim_item_type)
+                potential.generate_new_kim_id(id_prefix=example_kimcode_prefix)
                 try:
 
                     example_kimcode = potential.save_potential_files(
                         model_name_prefix=example_kimcode_prefix,
-                        model_driver=driver_test_kimcode,
-                        kim_item_type=kim_item_type)
+                        model_driver=driver_test_kimcode)
 
                 except cf.KimCodeAlreadyInUseError:
                     models.delete(example_kimcode)
 
                     example_kimcode = potential.save_potential_files(
                         model_name_prefix=example_kimcode_prefix,
-                        model_driver=driver_test_kimcode,
-                        kim_item_type=kim_item_type)
+                        model_driver=driver_test_kimcode)
 
             potential.get_potential_files(destination_path=".",
                                           kim_id=example_kimcode)
@@ -308,21 +300,11 @@ def potential_kim_api_integration_test(input_file: str) -> bool:
         __, potential = trainer_potential_combined_test(
             trainer_test_input_file)
 
-        is_sm = False
-
-        # currently only FitSNAP Simulator-Models are supported
-        # generic pair style xyz SMs will probably work with the template
-        if potential.model_type == "fitsnap":
-            is_sm = True
-
-        if is_sm:
-            potential.model_driver = None
-            potential.generate_new_kim_id(example_kimcode_prefix,
-                                          kim_item_type="simulator-model")
-        else:
-            potential.generate_new_kim_id(example_kimcode_prefix,
-                                          kim_item_type="portable-model")
+        potential.generate_new_kim_id(example_kimcode_prefix)
+        if potential.kim_item_type == 'portable-model':
             potential.model_driver = model_driver
+        else:
+            potential.model_driver = None
 
         try:
             atoms = FaceCenteredCubic(symbol=potential.species[0],
@@ -330,20 +312,11 @@ def potential_kim_api_integration_test(input_file: str) -> bool:
                                       size=(1, 1, 1))
 
             # test installing in KIM_API
-            if is_sm:
-                potential.install_potential_in_kim_api(
-                    potential_name=potential.kim_id,
-                    kim_item_type='simulator-model',
-                    install_locality="system",
-                    save_path=tmp_dest_path,
-                    import_into_kimkit=True)
-            else:
-                potential.install_potential_in_kim_api(
-                    potential_name=potential.kim_id,
-                    kim_item_type='portable-model',
-                    install_locality="system",
-                    save_path=tmp_dest_path,
-                    import_into_kimkit=True)
+            potential.install_potential_in_kim_api(
+                potential_name=potential.kim_id,
+                install_locality="system",
+                save_path=tmp_dest_path,
+                import_into_kimkit=True)
 
             try:
                 # test potential.evaluate() method

@@ -40,32 +40,41 @@ def clean_test_dirs():
 clean_test_dirs()
 
 # First, the potential module base tests
-
-tests_ran = [False] * 7
+tests_ran = [False] * 10
 tests_ran[0] = trainer_potential_combined_test(
     'test_inputs/01_dnn_test_input.json')[0]
 tests_ran[1] = trainer_potential_combined_test(
     'test_inputs/02_kim_test_input.json')[0]
 tests_ran[2] = trainer_potential_combined_test(
     'test_inputs/03_fitsnap_test_input.json')[0]
-tests_ran[3] = trainer_potential_workflow_test(
-    'test_inputs/04_dnn_submit_test_input.json')
-tests_ran[4] = trainer_potential_workflow_test(
-    'test_inputs/05_fitsnap_submit_test_input.json')
+tests_ran[3] = trainer_potential_combined_test(
+    'test_inputs/04_fitsnap_test_per_atom_weights_input.json')
+tests_ran[4] = trainer_potential_combined_test(
+    'test_inputs/05_chimes_test_input.json')
 tests_ran[5] = trainer_potential_combined_test(
-    'test_inputs/06_fitsnap_test_per_atom_weights_input.json')
+    'test_inputs/06_chimes_test_per_atom_weights_input.json')
+
 tests_ran[6] = trainer_potential_workflow_test(
-    'test_inputs/07_fitsnap_submit_test_per_atom_weights_input.json')
+    'test_inputs/07_dnn_submit_test_input.json')
+tests_ran[7] = trainer_potential_workflow_test(
+    'test_inputs/08_fitsnap_submit_test_input.json')
+tests_ran[8] = trainer_potential_workflow_test(
+    'test_inputs/09_fitsnap_submit_test_per_atom_weights_input.json')
+tests_ran[9] = trainer_potential_workflow_test(
+    'test_inputs/10_chimes_submit_test_input.json')
 
 # now validate the tests:
 validation_tests = [
     'test_dnn_trainer_bp_potential[1]',
     'test_parametric_trainer_sw_potential',
     'test_fitsnap_trainer[3]',
-    'test_dnn_trainer_bp_potential[4]',
-    'test_fitsnap_trainer[5]',
-    'test_fitsnap_weighted_trainer[6]',
-    'test_fitsnap_weighted_trainer[7]',
+    'test_fitsnap_weighted_trainer[4]',
+    'test_chimes_trainer[5]',
+    'test_chimes_weighted_trainer[6]',
+    'test_dnn_trainer_bp_potential[7]',
+    'test_fitsnap_trainer[8]',
+    'test_fitsnap_weighted_trainer[9]',
+    'test_chimes_trainer[10]',
 ]
 test_strings = []
 if (len(tests_ran) != len(validation_tests)):
@@ -89,11 +98,11 @@ kimkit_fitsnap_test_ran = False
 kimkit_dnn_test_ran = False
 
 kimkit_test_ran = potential_kimkit_combined_test(
-    'test_inputs/08_kim_potential_test_input.json')
+    'test_inputs/11_kim_potential_test_input.json')
 kimkit_fitsnap_test_ran = potential_kimkit_combined_test(
-    'test_inputs/09_fitsnap_potential_test_input.json')
+    'test_inputs/12_fitsnap_potential_test_input.json')
 kimkit_dnn_test_ran = potential_kimkit_combined_test(
-    'test_inputs/10_dnn_potential_test_input.json')
+    'test_inputs/13_dnn_potential_test_input.json')
 
 if kimkit_test_ran:
     print('Kimkit test completed, check std output for confirmation')
@@ -111,11 +120,14 @@ else:
 # Finally, test integrtation with the KIM_API
 potential_kim_api_test_ran = False
 potential_kim_api_fitsnap_test_ran = False
+potential_kim_api_chimes_test_ran = False
 
 potential_kim_api_test_ran = potential_kim_api_integration_test(
-    'test_inputs/09_kim_api_test_input.json')
+    'test_inputs/14_kim_api_test_input.json')
 potential_kim_api_fitsnap_test_ran = potential_kim_api_integration_test(
-    'test_inputs/10_kim_api_fitsnap_test_input.json')
+    'test_inputs/15_kim_api_fitsnap_test_input.json')
+potential_kim_api_chimes_test_ran = potential_kim_api_integration_test(
+    'test_inputs/16_kim_api_chimes_test_input.json')
 
 if potential_kim_api_test_ran:
     print(
@@ -127,4 +139,10 @@ if potential_kim_api_fitsnap_test_ran:
           'confirmation')
 else:
     print('There was a problem running the Potential/KIM_API FitSnap '
+          'integration test')
+if potential_kim_api_chimes_test_ran:
+    print('Potential/KIM_API ChIMES test completed, check std output for '
+          'confirmation')
+else:
+    print('There was a problem running the Potential/KIM_API ChIMES '
           'integration test')

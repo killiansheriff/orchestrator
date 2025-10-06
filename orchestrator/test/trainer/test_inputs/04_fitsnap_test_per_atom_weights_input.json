@@ -23,6 +23,6 @@
             "credential_file":"<STORAGE_CREDENTIAL_PATH>"
         }
     },
-    "path_type":"06_unit_test",
+    "path_type":"04_unit_test",
     "dataset_handle":"<TEST_Ta_DATASET_HANDLE>"
 }
