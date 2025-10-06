@@ -69,6 +69,12 @@ class PotentialBuilder(ModuleBuilder):
                                                      FitSnapPotential)
                 except ModuleAlreadyInFactoryError:
                     pass
+            case 'ChIMES':
+                from .chimes import ChIMESPotential
+                try:
+                    potential_factory.add_new_module('ChIMES', ChIMESPotential)
+                except ModuleAlreadyInFactoryError:
+                    pass
 
         potential_constructor = self.factory.select_module(potential_type)
         built_class = potential_constructor(**potential_args)

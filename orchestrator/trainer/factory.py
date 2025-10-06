@@ -71,6 +71,12 @@ class TrainerBuilder(ModuleBuilder):
                     trainer_factory.add_new_module('FitSnap', FitSnapTrainer)
                 except ModuleAlreadyInFactoryError:
                     pass
+            case 'ChIMES':
+                from .chimes import ChIMESTrainer
+                try:
+                    trainer_factory.add_new_module('ChIMES', ChIMESTrainer)
+                except ModuleAlreadyInFactoryError:
+                    pass
 
         trainer_constructor = self.factory.select_module(trainer_type)
         built_class = trainer_constructor(**trainer_args)
