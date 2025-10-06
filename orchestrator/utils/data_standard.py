@@ -42,6 +42,21 @@ SELECTOR_PROPERTY_MAP = {
         }
     }
 }
+SELECTOR_PROPERTY_DEFINITION = {
+    'property-id':
+    'tag:staff@noreply.colabfit.org,2024-12-09:property/selection-mask',
+    'property-name': 'selection',
+    'property-title': 'Selection mask',
+    'property-description':
+    'List of bools determining if atom is selected or not',
+    'mask': {
+        'type': 'bool',
+        'has-unit': False,
+        'extent': [':'],
+        'required': True,
+        'description': 'The per-atom selection'
+    }
+}
 
 PLACEHOLDER_ARRAY_KEY = 'in_memory_array'  # used when writing args to tmp file
 

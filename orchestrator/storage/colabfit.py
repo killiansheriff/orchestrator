@@ -627,7 +627,14 @@ class ColabfitStorage(Storage):
 
         return new_dataset_handle
 
-    def list_data(self, dataset_handle: Optional[str] = None):
+    def list_data(
+        self,
+        dataset_handle: Optional[str] = None,
+        text: Optional[str] = None,
+        properties: Optional[str] = None,
+        elements: Optional[str] = None,
+        elements_exact: Optional[bool] = False,
+    ):
         """
         Utility function to query the database
 
@@ -639,14 +646,40 @@ class ColabfitStorage(Storage):
 
         :param dataset_handle: name of the dataset |default| ``None``
         :type dataset_handle: str
+        :param text: text to search for within the dataset. This can be
+            authors, descriptions, uploader. |default| ``None``
+        :type test: str
+        :param properties: name of properties to search for. Multiple should
+            be included as "energy atomic-forces" |default| ``None``
+        :type properties: str
+        :param elements: elements to search for. Multiple should be included as
+            "C H". Will return datsets containing these plus other elements.
+            See elements_exact |default| ``None``
+        :type elements: str
+        :param elements_exact: whether to restrict element search to return
+            datasets containing only specified elements |default| ``False``
+        :type elements_exact: bool
         """
         colabfit_query_installed = system(
             'which colabfit 1> /dev/null 2> /dev/null')
+        if dataset_handle is not None and text is not None:
+            raise Exception(
+                "Only one of dataset_handle and text should be used.")
+        query = ""
+        if text is not None:
+            query += f"-t '{text}' "
+        if properties is not None:
+            query += f"-p '{properties}' "
+        if elements is not None:
+            if elements_exact:
+                query += f"-ee '{elements}'"
+            else:
+                query += f"-e '{elements}'"
         if colabfit_query_installed == 0:
             if dataset_handle is None:
-                system(f'{self.query_string}')
+                system(f'{self.query_string} {query}')
             else:
-                system(f'{self.query_string} -t "{dataset_handle}"')
+                system(f'{self.query_string} -t "{dataset_handle}" {query}')
         else:
             self.logger.info('Error: cfkit-cli must be installed to list data')
 
@@ -1004,6 +1037,73 @@ class ColabfitStorage(Storage):
         """
         property_definitions = self.database_client.get_property_definitions()
         return property_definitions
+
+    def update_property_definition(self, prop_def: str, new_keys: dict):
+        """
+        Updates an existing property definition with new keys
+
+        Only keys that are not currently a part of the definition should be
+        add in new_keys. Populates existing entries with provided default value
+        Form of new_keys should be similar to::
+
+            {'energy': {
+                'type': 'float',
+                'has-unit': True,
+                'extent': [],
+                'required': True,
+                'description': 'The potential energy of the system.',
+                'default-value': None
+            }}
+
+        The default default-value is NULL.
+
+        :param prop_def: name of definition to update
+        :type prop_def: str
+        :param new_keys: dict containing new keys to add with default values to
+            populate existing entries
+        :type prop_def: dict
+        """
+
+        # get property definition
+        property_dict = None
+        definitions = self.get_property_definitions()
+        prop_def = prop_def.replace('_', '-')
+        for d in definitions:
+            if d.get('property-name') == prop_def:
+                property_dict = d
+                original_dict = d.copy()
+        if property_dict is None:
+            raise Exception(f'''Property with provided name
+            {prop_def} not found.''')
+        # add keys to definition
+        for k, v in new_keys.items():
+            default_value = v.pop('default-value', "NULL")
+            property_dict[k] = v
+            # update PO tables
+            column_name = property_dict['property-name'].replace('-', '_') \
+                + f'_{k}'.replace('-', '_')
+            if v['type'] == 'float':
+                data_type = "DOUBLE PRECISION"
+            elif v['type'] == 'int':
+                data_type = "INT"
+            elif v['type'] == 'bool':
+                data_type = "BOOL"
+            else:
+                data_type = "VARCHAR (10000)"
+            for i in range(len(v['extent'])):
+                data_type += '[]'
+            self.database_client.insert_new_column('property_objects',
+                                                   column_name,
+                                                   data_type,
+                                                   default=default_value)
+        # update PD in DB
+        print(f'Original definition: {original_dict}')
+        print(f'Updated definition: {property_dict}')
+        sql = f'''UPDATE property_definitions
+            SET definition = '{json.dumps(property_dict)}'
+            WHERE definition = '{json.dumps(original_dict)}';
+        '''
+        self.database_client.general_query(sql)
 
     def setup_tables(self) -> None:
         """
