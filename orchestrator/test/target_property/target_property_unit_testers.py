@@ -138,12 +138,14 @@ def sample_config_unit_test() -> bool:
     :rtype: bool
     """
 
+    element_list = ['Cu'] * 256
     # beginning frame, ending frame, save every nth step
     # trajectory name, calc_ids=None, workflow=None, path of the trajectory
     atoms = MeltingPoint.sample_configs(
         1,
         5,
         2,
+        element_list,
         "dump.lammpstrj",
         in_paths=['../sample_npt_traj'],
     )

@@ -6,8 +6,8 @@ test_dir = 'INSTALL_PATH'
 
 
 @pytest.mark.parametrize('job_path', [
-    'copper_standardpress_melting_output_quartz.dat',
-    'copper_standardpress_melting_output_quartz_kim_api.dat',
+    'copper_standardpress_melting_output.dat',
+    'copper_standardpress_melting_output_kim_api.dat',
     'copper_standardpress_melting_slurm2lsf_output.dat',
 ])
 def test_melting_point(job_path):

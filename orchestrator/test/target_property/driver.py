@@ -18,9 +18,9 @@ tests_ran[0] = target_property_unit_test(
 tests_ran[1] = target_property_unit_test(
     'test_inputs/potential_elastic_input.json')
 tests_ran[2] = target_property_unit_test(
-    'test_inputs/copper_standardpress_melting_input_quartz.json')
+    'test_inputs/copper_standardpress_melting_input.json')
 tests_ran[3] = target_property_unit_test(
-    'test_inputs/copper_standardpress_melting_input_quartz_kim_api.json')
+    'test_inputs/copper_standardpress_melting_input_kim_api.json')
 tests_ran[4] = target_property_unit_test(
     'test_inputs/copper_standardpress_melting_slurm2lsf_input.json')
 tests_ran[5] = sample_config_unit_test()
