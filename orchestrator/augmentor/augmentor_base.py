@@ -7,14 +7,14 @@ from ..utils.isinstance import isinstance_no_import
 from ..utils.recorder import Recorder
 from ..utils.restart import restarter
 from ..workflow import Workflow
-from .extract_env import extract_env, find_central_atom
+from .extract_env import extract_env, find_central_atom, get_ith_shell
 from ase import Atoms
 from copy import deepcopy
 from functools import partial
 import itertools
 from multiprocessing import Pool, cpu_count
 import numpy as np
-from os import getpid
+import os
 from typing import Union, Optional, Any
 
 # from typing import TYPE_CHECKING
@@ -59,6 +59,8 @@ class Augmentor(Recorder):
         :type checkpoint_name: str
         """
         super().__init__()
+        # limit openblas threads to avoid problems with parallel
+        os.environ['OPENBLAS_NUM_THREADS'] = '1'
         self.default_iteration_limit = default_iteration_limit
         self.checkpoint_file = checkpoint_file
         self.checkpoint_name = checkpoint_name
@@ -239,8 +241,9 @@ class Augmentor(Recorder):
         self,
         configs: list[Atoms],
         selection_masks: Union[list[np.ndarray], str],
-        extract_rc: float,
+        extract_rc: Union[float, str],
         extract_box_size: float,
+        min_dist_delete: Optional[float] = 0.7,
         keys_to_transfer: Optional[list[str]] = None,
     ) -> list[Atoms]:
         """
@@ -261,11 +264,18 @@ class Augmentor(Recorder):
             the key SELECTION_MASK_KEY from the configs
         :type selection_masks: np.ndarray or str
         :param extract_rc: cutoff radius to extract and constrain positions in
-            Angstroms
+            Angstroms if float. Otherwise should be a string of form 'shell-X'
+            where X is the desired NN shell (min 1) to denote as valid
         :type extract_rc: float
         :param extract_box_size: side length of the box to embed the extracted
             environment into
         :type extract_box_size: float
+        :param min_dist_delete: dist in Angstroms specifies how close atoms
+            need to be to one another, excluding those in the fixed center
+            core, to be considered colliding and deleted. Set to 0 for no
+            deletions. This is done to remove unphysically close contacts
+            resulting from the new periodic boundaries. |default| ``0.7``
+        :type min_dist_delete: float
         :param keys_to_transfer: any keys of data attached to the configs which
             should be preserved through the extraction process.
         :type keys_to_transfer: list of str
@@ -286,6 +296,23 @@ class Augmentor(Recorder):
             extract_box_size,
             extract_box_size,
         ])
+        if isinstance(extract_rc, str):
+            split_str = extract_rc.split('-')
+            if len(split_str) != 2 or split_str[0] != 'shell':
+                raise ValueError('str extract_rc values must be "shell-X"')
+            # specify extract_rc so atoms in core won't be labeled as
+            # collisions and potentialy deleted, if close to eachother
+            extract_rc = extract_box_size * 0.40
+            try:
+                shell_index = int(split_str[1])
+            except ValueError:
+                raise ValueError('extract_rc string does not contain a valid'
+                                 'shell index. "shell-X" should have an int X'
+                                 f' but is "{split_str[1]}" instead')
+            compute_shell_indices = True
+        else:
+            compute_shell_indices = False
+
         subcell_list = []
         # create the subcells with fixed central spheres embedded in cubes cut
         # from the larger configuration
@@ -304,6 +331,7 @@ class Augmentor(Recorder):
                     atom_id_list,
                     extract_box,
                     extract_cube=True,
+                    min_dist_delete=min_dist_delete,
                     keys_to_transfer=keys_to_transfer,
                 )
                 for subcell in subcells:
@@ -311,8 +339,20 @@ class Augmentor(Recorder):
                         subcell,
                         extract_box_size,
                     )
+                    if compute_shell_indices:
+                        # extract_rc set to shell
+                        use_atoms = get_ith_shell(
+                            subcell,
+                            central_atom_index,
+                            shell_index,
+                        )
+                    else:
+                        # extract_rc specified as a float, use the sphere
+                        # computed during extract_env run
+                        use_atoms = subcell.constraints[0].index
                     extraction_dict = {
                         'central_atom_index': central_atom_index,
+                        'use_atoms': use_atoms.tolist(),
                         'extracted_cell': True,
                     }
                     # create metadata dict if doesn't exist already
@@ -321,7 +361,7 @@ class Augmentor(Recorder):
                     subcell.info[METADATA_KEY].update(extraction_dict)
                     # add the mask info for the central atom
                     mask = np.zeros(len(subcell), dtype=bool)
-                    mask[central_atom_index] = 1
+                    mask[use_atoms] = 1
                     subcell.set_array(SELECTION_MASK_KEY, mask)
                     # we don't want to attach the relaxation forces/energy
                     subcell.calc = None
@@ -335,7 +375,7 @@ class Augmentor(Recorder):
                 # other data attached which we don't want to save?
                 subcell = deepcopy(config)
                 extraction_dict = {
-                    'central_atom_index': atom_id_list,
+                    'use_atoms': atom_id_list,
                     'extracted_cell': False,
                 }
                 # create metadata dict if doesn't exist already
@@ -360,6 +400,7 @@ class Augmentor(Recorder):
         workflow: Workflow,
         extract_rc: float,
         extract_box_size: float,
+        min_dist_delete: Optional[float] = 0.7,
         job_details: Optional[dict[str, Union[str, int]]] = None,
         batch_size: Optional[int] = 1,
         max_num_to_extract: Optional[int] = None,
@@ -397,6 +438,12 @@ class Augmentor(Recorder):
         :param extract_box_size: side length of the box to embed the extracted
             environment into
         :type extract_box_size: float
+        :param min_dist_delete: dist in Angstroms specifies how close atoms
+            need to be to one another, excluding those in the fixed center
+            core, to delete colliding atoms. Set to 0 for no deletions. This is
+            done to remove unphysically close contacts resulting from the new
+            boundaries. |default| ``0.7``
+        :type min_dist_delete: float
         :param job_details: dict that includes any additional parameters for
             running the initial novel environment job |default| ``None``
         :type job_details: dict
@@ -515,6 +562,7 @@ class Augmentor(Recorder):
             selection_masks,
             extract_rc,
             extract_box_size,
+            min_dist_delete,
             # descriptors and scores are the only values we care to preserve
             [descriptors_key, f'{score_module.OUTPUT_KEY}_score'],
         )
@@ -1036,7 +1084,7 @@ class Augmentor(Recorder):
         if iteration_limit is None:
             iteration_limit = self.default_iteration_limit
         if _print_pid:
-            pid = getpid()
+            pid = os.getpid()
             pid_string = f'[{pid}] '
         else:
             pid_string = ''

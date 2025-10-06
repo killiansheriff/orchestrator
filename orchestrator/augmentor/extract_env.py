@@ -1,6 +1,7 @@
 import numpy as np
 from ase import Atoms
 from ase.neighborlist import NeighborList
+from scipy.signal import argrelextrema, savgol_filter
 from typing import Optional
 from orchestrator.utils.exceptions import CellTooSmallError
 from orchestrator.utils.data_standard import METADATA_KEY
@@ -12,6 +13,7 @@ def extract_env(
     atom_inds: list[int],
     new_cell: np.ndarray,
     extract_cube: Optional[bool] = False,
+    min_dist_delete: Optional[float] = 0.7,
     keys_to_transfer: Optional[list[str]] = None,
 ) -> list[Atoms]:
     """
@@ -32,6 +34,11 @@ def extract_env(
         * NOTE: the when extracting a cube shape, only atoms within a sphere
         defined by rc will be constrained for potential relaxation (not
         currently performed)
+    :param min_dist_delete: float dist in Angstroms specifies how close atoms
+        need to be to one another, excluding those in the fixed center core,
+        to be considered colliding and deleted. Set to 0 for no deletions.
+        This is done to remove unphysically close contacts resulting from the
+        new boundaries. |default| ``0.7``
     :param keys_to_transfer: list of array keys which contain additional data
         that should be attached to the new configurations
     :returns: list of ase atoms objects with the local environment emedded
@@ -153,6 +160,16 @@ def extract_env(
         c = FixAtoms(indices=ind_fix)
         new_atoms.set_constraint(c)
 
+        # delete atoms colliding at the new boundaries
+        if extract_cube and min_dist_delete > 0:
+            total_collisions, num_collisions_per_atom = _find_collisions(
+                new_atoms, min_dist_delete)
+            while total_collisions != 0:
+                atom_to_delete = np.argmax(num_collisions_per_atom)
+                del new_atoms[atom_to_delete]
+                total_collisions, num_collisions_per_atom = _find_collisions(
+                    new_atoms, min_dist_delete)
+
         subcells.append(new_atoms)
 
     return subcells
@@ -182,3 +199,149 @@ def find_central_atom(config: Atoms, side_size: float) -> int:
                 break
         if atom_found:
             return i
+
+
+def get_ith_shell(
+    config: Atoms,
+    central_atom_index: int,
+    shell_index: int,
+) -> np.ndarray:
+    """
+    Find the indices of atoms in the first neighbor shell of a central atom
+
+    This function computes the radial distribution function (RDF) to estimate
+    the first nearest neighbor (1NN) shell distance, then identifies all atoms
+    within that shell around the specified central atom.
+
+    :param config: Atoms object representing the atomic configuration
+    :type config: Atoms
+    :param central_atom_index: Index of the central atom whose neighbors are
+        sought
+    :type central_atom_index: int
+    :param shell_index: what shell to extract, from 1 (1NN), up to N
+        (within 10 A)
+    :type shell_index: int
+    :returns: Indices of atoms in the first shell as a numpy array
+    :rtype: np.ndarray
+    """
+    if shell_index < 1:
+        raise ValueError('shell_index must be at least 1')
+    r, rdf = _get_rdf(config, 5.0, 0.1)
+    # smooth the function for easier peak/valley extraction
+    rdf_smooth = savgol_filter(rdf, window_length=10, polyorder=3)
+    # get the peaks and valleys starting from global max
+    peak_idxs, valley_idxs = _find_peaks_and_valleys(rdf_smooth)
+    if shell_index > len(valley_idxs):
+        raise RuntimeError(f'Requested {shell_index}NN shell but only '
+                           f'{len(valley_idxs)} shells found within 10 A')
+    shell_idx = valley_idxs[shell_index - 1]
+    shell_distance = r[shell_idx]
+    # now get ith NN shell of central atom
+    cutoffs = [0.5 * shell_distance] * len(config)
+    nl = NeighborList(cutoffs, skin=0.0, bothways=True, self_interaction=True)
+    nl.update(config)
+    indices, _ = nl.get_neighbors(central_atom_index)
+    return indices
+
+
+def _get_rdf(
+    config: Atoms,
+    r_max: float,
+    dr: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Compute the radial distribution function for a given structure
+
+    :param config: Atoms object representing the atomic configuration
+    :type config: Atoms
+    :param r_max: Maximum distance to consider for RDF calculation (Angstrom)
+    :type r_max: float
+    :param dr: Bin width for RDF histogram (Angstrom)
+    :type dr: float
+    :returns: bin centers (r) and RDF values (rdf)
+    :rtype: Tuple(np.ndarray)
+    """
+    n_atoms = len(config)
+    cell = config.get_cell()
+    positions = config.get_positions()
+    cutoffs = [0.5 * r_max] * n_atoms
+    nl = NeighborList(cutoffs, skin=0.0, bothways=True, self_interaction=False)
+    nl.update(config)
+    bins = np.arange(0, r_max + dr, dr)
+    rdf_hist = np.zeros(len(bins) - 1)
+    for i in range(n_atoms):
+        indices, offsets = nl.get_neighbors(i)
+        pos_i = positions[i]
+        for j, offset in zip(indices, offsets):
+            if i == j:
+                # this should not happen with self_interaction = False
+                continue
+            pos_j = positions[j] + np.dot(offset, cell)
+            dist = np.linalg.norm(pos_j - pos_i)
+            if dist < r_max:
+                bin_idx = int(dist // dr)
+                if bin_idx < len(rdf_hist):
+                    rdf_hist[bin_idx] += 1
+    # Normalize
+    r = 0.5 * (bins[:-1] + bins[1:])
+    shell_volumes = 4.0 / 3.0 * np.pi * (bins[1:]**3 - bins[:-1]**3)
+    number_density = n_atoms / config.get_volume()
+    rdf = rdf_hist / (n_atoms * shell_volumes * number_density)
+    return r, rdf
+
+
+def _find_peaks_and_valleys(rdf: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Find the indicies of the peaks and valleys in the RDF
+
+    Locates the first major peak in the RDF and then finds the position of the
+    following valleys and peaks, which are used to define the boundary of the
+    neighbor shells.
+
+    :param rdf: RDF values
+    :type rdf: np.ndarray
+    :returns: indices of the peaks and valleys starting from the global max
+    :rtype: Tuple(float)
+    """
+    # Find index of the largest peak
+    max_peak_idx = np.argmax(rdf)
+    # Find all the peaks and valleys
+    peak_indices = argrelextrema(rdf, np.greater)[0]
+    valley_indices = argrelextrema(rdf, np.less)[0]
+    # Filter indices after the max peak
+    peak_indices_from_max = peak_indices[peak_indices >= max_peak_idx]
+    valley_indices_from_max = valley_indices[valley_indices > max_peak_idx]
+
+    return peak_indices_from_max, valley_indices_from_max
+
+
+def _find_collisions(atoms: Atoms, min_dist: float) -> tuple[int, np.ndarray]:
+    """
+    Find the collisions between atoms that do not have constraints.
+
+    Used in extract_env() to find collisions across boundaries so those atoms
+    can be deleted
+
+    :param atoms: atoms for which to search for collisions
+    :type: ASE Atoms object
+    :param min_dist: float criterion below or equal to which is considered
+        a collision between atoms
+    :type min_dist: float
+    :returns: (total_collisions) total number of unique collisions followed
+        by (num_collisions_per_atom) array containing number of collisions
+        per atom
+    :rtype: tuple[int, np.ndarray]
+    """
+    # get neighbors that constitute collisions
+    n_atoms = len(atoms)
+    cutoffs = (0.5 * min_dist * np.ones((n_atoms))).tolist()
+    nl = NeighborList(cutoffs, self_interaction=False, bothways=True, skin=0)
+    nl.update(atoms)
+    # find atoms with most collisions
+    connect_mat = nl.get_connectivity_matrix(sparse=False)
+    num_collisions_per_atom = np.sum(connect_mat, 1)
+    # ignore atoms in the fixed core
+    for const in atoms.constraints:
+        num_collisions_per_atom[const.get_indices()] = 0
+    total_collisions = int(np.sum(num_collisions_per_atom) / 2)
+    return (total_collisions, num_collisions_per_atom)
