@@ -32,14 +32,37 @@ class KIMRun(TargetProperty):
 
     def __init__(
         self,
-        image_path: PathLike,
+        container_manager: str = "podman",
+        image_path:
+        PathLike = "ghcr.io/openkim/developer-platform:v1.7.8-minimal",
         **kwargs,
     ):
         """
         Class for calculating properties using KIM Tests
-        :param image_path: Path to singularity image to use.
+
+        :param container_manager: Whether to use singularity or podman.
+        :type container_manager: str
+        :param image_path:
+            For podman, this should point to a KIM Developer Platform (KDP)
+            image (https://github.com/openkim/developer-platform).
+            For all possible ways to specify this, see
+            https://docs.podman.io/en/latest/markdown/podman-run.1.html#image
+            By default, this points to a pinned version of the minimal KDP in
+            the GitHub Container Registry (grcr.io), which will automatically
+            be downloaded at runtime if needed.
+            For Singularity, this should be a path to a local Singularity
+            image file, built like this from the Docker image:
+
+            .. code-block:: bash
+
+                singularity build foo.sif \\
+                docker://ghcr.io/openkim/developer-platform:v1.7.8-minimal
+
         :type image_path: PathLike
         """
+        if container_manager not in ("podman", "singularity"):
+            raise RuntimeError("Only 'singularity' or 'podman' supported")
+        self.container_manager = container_manager
         self.image_path = image_path
         self.outstanding_calc = None
         super().__init__(**kwargs)
@@ -221,12 +244,13 @@ class KIMRun(TargetProperty):
             f.write(query_script)
 
         query_command = \
-            f'{self._singularity_preamble(work_path)} ' + \
+            f'{self._container_manager_preamble(work_path)} ' + \
             f'--env PYTHONPATH=/pipeline/ {self.image_path} ' + \
             f'python {query_script_path}'
 
-        query_stringified_output = check_output(query_command.split(),
-                                                encoding='utf-8')
+        query_stringified_output = check_output(query_command,
+                                                encoding='utf-8',
+                                                shell=True)
 
         if not flatten:
             property_value = loads(query_stringified_output)
@@ -249,9 +273,10 @@ class KIMRun(TargetProperty):
 
         # return results
         results_dict = {
-            'property_value': property_value,
-            'property_std': None,
-            'calc_ids': (calc_id, )
+            "property_value": property_value,
+            "property_std": None,
+            "calc_ids": (calc_id, ),
+            "success": True,
         }
 
         if potential_is_temporary:
@@ -271,7 +296,7 @@ class KIMRun(TargetProperty):
         """
         Perform simulations for the target property calculations
 
-        :param sim_params: parameters that define the Singularity
+        :param sim_params: parameters that define the containerized
             run, including ``test_list``, ``image_path`` and
             ``potential_name``
         :type sim_params: dict
@@ -290,8 +315,7 @@ class KIMRun(TargetProperty):
         # is because I need to find the path using the command below
         work_path = workflow.make_path(self.__class__.__name__, sim_path)
 
-        # convert paths to absolute (not sure if needed but can't hurt)
-        image_path = abspath(image_path)
+        # convert path to absolute
         work_path = abspath(work_path)
         kdp_env_file_path = os.path.join(work_path, 'kimrun-kdp-env')
         kim_api_config_path = os.path.join(work_path, '.kim-api/config')
@@ -340,8 +364,9 @@ class KIMRun(TargetProperty):
             f'RUNNING MODEL {model_name} WITH THE FOLLOWING TESTS: '
             + ', '.join([test for test in test_run_order]))
 
-        command = f'{self._singularity_preamble(work_path)} {image_path} ' + \
-            "bash -c 'unset SLURM_NODELIST && "
+        command = (
+            f"{self._container_manager_preamble(work_path)} {image_path} "
+            "bash -c 'unset SLURM_NODELIST && ")
 
         command_lines = []
         for test in test_run_order:
@@ -463,18 +488,25 @@ class KIMRun(TargetProperty):
         """
         return os.path.join(work_path, 'kimrun-env')
 
-    def _singularity_preamble(self, work_path: PathLike) -> str:
+    def _container_manager_preamble(self, work_path: PathLike) -> str:
         """
-        get universal ``singularity exec`` command preamble
+        get universal command preamble for container manager
 
         :param work_path: work directory path
         :type work_path: PathLike
-        :returns: Singularity preamble (including environment file and mount
-        bind)
+        :returns: container manager preamble
         :rtype: str
         """
-        return 'singularity exec --env-file ' + \
-            f'{self._env_file_path(work_path)} -B {work_path}'
+        # Mount path to itself inside podman, for maximum code sharing
+        # between podman and singularity
+        if self.container_manager == "podman":
+            return (
+                "unset XDG_RUNTIME_DIR && "
+                "podman run --rm -u=root --env-file "
+                f"{self._env_file_path(work_path)} -v {work_path}:{work_path}")
+        elif self.container_manager == "singularity":
+            return ("singularity exec --env-file "
+                    f"{self._env_file_path(work_path)} -B {work_path}")
 
     def calculate_with_error(self,
                              n_calc,
