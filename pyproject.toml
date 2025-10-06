@@ -40,6 +40,7 @@ dependencies = [
     "pandas==2.2.3",
     "pre-commit",
     "pytest==8.3.5",
+    "quests == 2025.09.29",
     "scikit-learn==1.6.1",
     "scipy==1.15.2",
     "sphinx",
@@ -54,9 +55,6 @@ dependencies = [
 LTAU = [
     "faiss-cpu == 1.8.0",
     "ltau-ff @ git+https://github.com/LLNL/ltau-ff/",
-]
-QUESTS = [
-    "quests @ git+https://github.com/dskoda/quests.git",
 ]
 FIMMATCHING = [
     "numdifftools",

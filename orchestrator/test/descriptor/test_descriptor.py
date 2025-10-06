@@ -119,3 +119,24 @@ def test_descriptors_local_batched_quests(job_id):
                  f'06_local_batched_quests/{job_id:05}/saved_config.extxyz')
 
     compare_outputs(ref_file, test_file)
+
+
+@pytest.mark.parametrize('job_id', range(1))
+def test_descriptors_colabfit_quests_multi_el(job_id):
+    """
+    Tests descriptor evaluation and storage in the Local storage backend.
+
+    The QUESTSDescriptor is used to compute QUESTS descriptors for a
+    small selection of atomic configurations.
+
+    :param job_id: id of the descriptor run to test, set by pytest parametrize
+    :type job_id: int
+    """
+    ref_file = (
+        f'{ref_dir}/descriptor/QUESTSDescriptor/07_colabfit_quests_multi_el/'
+        f'{job_id:05}/saved_config.extxyz')
+    test_file = (
+        f'{test_dir}/descriptor/computer/QUESTSDescriptor/'
+        f'07_colabfit_quests_multi_el/{job_id:05}/saved_config.extxyz')
+
+    compare_outputs(ref_file, test_file)

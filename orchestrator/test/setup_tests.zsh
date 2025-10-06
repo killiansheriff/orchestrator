@@ -69,6 +69,12 @@ copy_sample_configs() {
     fi
 }
 
+copy_multiel_sample_configs() {
+    if [[ ! -d ${INSTALL_PATH}/multi_element_configs ]]; then
+        cp -r shared_inputs/multi_element_configs ${INSTALL_PATH}
+    fi
+}
+
 copy_sample_traj() {
     if [[ ! -d ${INSTALL_PATH}/sample_npt_traj ]]; then
         cp -r shared_inputs/sample_npt_traj ${INSTALL_PATH}
@@ -131,6 +137,7 @@ substitute_inputs() {
 # descriptor tests
 if [[ ${TESTS} == "descriptor" || ${TESTS} == "all" ]]; then
     copy_sample_configs
+    copy_multiel_sample_configs
     copy_dir_content descriptor
 
     # specify machine specific params in input files
