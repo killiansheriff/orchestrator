@@ -277,13 +277,13 @@ class KliffBPPotential(Potential):
     def _save_potential_to_kimkit(self,
                                   kim_id: str = None,
                                   species: List[str] = None,
-                                  kim_item_type: str = 'simulator-model',
                                   model_name_prefix: str = None,
                                   param_files: List[str] = None,
                                   training_files: Optional[List[str]] = None,
                                   potential_files: Optional[List[str]] = None,
                                   model_driver: str = "no-driver",
-                                  model_defn: str = None,
+                                  model_defn: Optional[str] = None,
+                                  model_init: Optional[str] = None,
                                   work_dir: str = '.',
                                   previous_item_name: str = None) -> str:
         """
@@ -316,7 +316,7 @@ class KliffBPPotential(Potential):
 
         Otherwise, you can manually generate a kimcode yourself by
         passing the same human-readable prefix to
-        kimkit.kimcodes.generate_new_kim_id(prefix, kim_item_type)
+        kimkit.kimcodes.generate_new_kim_id(prefix)
         which will return a new unique kimcode. Then you can simply
         assign that as the item's kim_id.
 
@@ -325,10 +325,6 @@ class KliffBPPotential(Potential):
         :type kim_id: str
         :param species: List of supported species
         :type species: list(str)
-        :param kim_item_type: type of potential, should be either
-            'portable-model' or 'simulator-model', depending on whether
-            the model requires a model-driver.
-        :type kim_item_type: str
         :param model_name_prefix: Human readable prefix to a KIM Model ID,
             must be provided if kim_id is not
         :type model_name_prefix: str
@@ -353,6 +349,9 @@ class KliffBPPotential(Potential):
         :param model_defn: for simulator-models, commands needed to
             initialize the potential in the simulator (typically LAMMPS)
         :type model_defn: str
+        :param model_init: for simulator-models, commands needed to
+            initialize the model in the simulator (typically LAMMPS)
+        :type model_init: str
         :param work_dir: where to make temporary files
         :type work_dir: str
         :param previous_item_name: any name the item was referred to
@@ -367,8 +366,7 @@ class KliffBPPotential(Potential):
             try:
                 kim_id = self.kim_id
             except AttributeError:
-                kim_id = self.generate_new_kim_id(model_name_prefix,
-                                                  kim_item_type)
+                kim_id = self.generate_new_kim_id(model_name_prefix)
 
         work_dir = os.path.join(work_dir, kim_id)
 
@@ -403,7 +401,7 @@ class KliffBPPotential(Potential):
             kim_id=self.kim_id,
             model_name_prefix=model_name_prefix,
             model_defn=model_defn,
-            kim_item_type=kim_item_type,
+            model_init=model_init,
             param_files=param_files,
             training_files=training_files,
             potential_files=potential_files,
@@ -417,9 +415,11 @@ class KliffBPPotential(Potential):
     def install_potential_in_kim_api(
         self,
         potential_name='kim_potential',
-        kim_item_type='simulator-model',
-        install_locality='environment',
+        model_defn=None,
+        model_init=None,
+        install_locality='user',
         save_path='.',
+        import_into_kimkit=True,
     ) -> None:
         """
         set up potential so it can be used externally
@@ -429,16 +429,12 @@ class KliffBPPotential(Potential):
         :param potential_name: name of the potential.,
             |default| 'kim_potential'
         :type potential_name: str
-        :param kim_item_type: type of potential, should be either
-            'portable-model' or 'simulator-model', depending on whether
-            the model requires a model-driver.
-        :type kim_item_type: str
         :param model_defn: for simulator-models, commands needed to
             initialize the potential in the simulator (typically LAMMPS)
         :type model_defn: str
         :param install_locality: kim-api-collections-management collection
             to install into. Options include "user", "system", "CWD",
-            and "environment-variable" |default| "CWD"
+            and "environment" |default| "user"
         :type install_locality: str
         :param save_path: location where the files associated with the
             potential are on disk. The files should already be written
@@ -447,18 +443,13 @@ class KliffBPPotential(Potential):
         if not os.path.isdir(f'{save_path}/{potential_name}'):
             self.model.write_kim_model(f'{save_path}/{potential_name}')
 
-        if install_locality in ['CWD', 'user', 'environment']:
-            result = os.system(
-                f'cd {save_path}; {self.kim_api} install '
-                f'{install_locality} {potential_name}; cd - 1> /dev/null')
-            if result == 0:
-                self.logger.info(f'Potential installed to {install_locality}')
-            else:
-                raise RuntimeError(
-                    f'Could not load {potential_name} into KIM API '
-                    f'(locality: {install_locality})')
-        else:
-            self.logger.info('Potential not installed')
+        return super().install_potential_in_kim_api(
+            potential_name=potential_name,
+            model_defn=model_defn,
+            model_init=model_init,
+            install_locality=install_locality,
+            save_path=save_path,
+            import_into_kimkit=import_into_kimkit)
 
     def get_params(self):
         """

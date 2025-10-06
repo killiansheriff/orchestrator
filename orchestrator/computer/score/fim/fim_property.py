@@ -413,7 +413,7 @@ class FIMPropertyScore(ModelScore):
         else:
             return fim
 
-    def _set_parameters_optimize(self, parameters_optimize):
+    def _set_parameters_optimize(self, parameters_optimize: dict):
         """
         This function basically sets necessary information for other
         function(s) that convert parameter format from an array that the FIM
@@ -824,22 +824,16 @@ class FIMPropertyScore(ModelScore):
         # Update potential parameter values
         direction, transformed_parameters = param_item
         parameters = self._parameters_inverse_transform(transformed_parameters)
-        params_dict = self._convert_params_array_to_dict(parameters)
         # We are still using KLIFF partially
         potential.model.set_opt_params(**self._parameters_optimize)
         potential.model.update_model_params(parameters)
 
         # Generate kim_id
-        if '_MO_' in potential.args['kim_id']:
-            kim_item_type = 'portable-model'
-        elif '_SM_' in potential.args['kim_id']:
-            kim_item_type = 'simulator-model'
-        kim_id = potential.generate_new_kim_id('fim_property_potential',
-                                               kim_item_type)
+        kim_id = potential.generate_new_kim_id('fim_property_potential')
         # Write potential file
         target_dir = os.path.join(self.potential_dir, kim_id)
         potential.model.write_kim_model(target_dir)
-        # model_driver and species are required arguments. But, param_files is
+        # model_driver is a required arguments. But, param_files is
         # not required. If we use potential's internal function to retrieve the
         # param_files, it will direct the param_files to the original
         # potential, not the perturbed potential. But, user can specify
@@ -851,7 +845,6 @@ class FIMPropertyScore(ModelScore):
             potential.param_files = self._get_param_files(potential)
         # Install potential
         potential.install_potential_in_kim_api(potential_name='kim_potential',
-                                               kim_item_type=kim_item_type,
                                                save_path=self.potential_dir,
                                                import_into_kimkit=False)
         return potential
@@ -870,32 +863,31 @@ class FIMPropertyScore(ModelScore):
         potential.build_potential()
         os.chdir(self._cwd)
 
-    def _save_potential_to_kimkit(self, potential):
+    def _save_potential_to_kimkit(self, potential: Potential):
         """
         A manual work to save potential to kimkit.
 
         Note: In the future, I think we will deprecate this method, since
         KIMRun can already supoprt Potential instance with
         `save_potential_to_kimkit` functionality. But, with the current
-        Potential class, we need to manually specify model driver, (parameter
-        files,) and species. This function automate that process.
+        Potential class, we need to manually specify model driver and
+        (parameter files,). This function automate that process.
         """
         potential_name = potential.kim_id
-        # Retrieve the species, model driver, and parameter files
-        species = self._potential_init_args["potential_args"]["species"]
+        # Retrieve the model driver, and parameter files
         model_driver = self._potential_init_args["potential_args"][
             "model_driver"]
         param_files = self._get_param_files(potential)
         # We now are ready to save the new potential to kimkit
 
-        potential.save_potential_files(kim_id=potential.kim_id,
-                                       param_files=param_files,
-                                       model_driver=model_driver,
-                                       species=species,
-                                       work_dir=self.potential_dir)
+        potential_name = potential.save_potential_files(
+            kim_id=potential.kim_id,
+            param_files=param_files,
+            model_driver=model_driver,
+            work_dir=self.potential_dir)
         return potential_name
 
-    def _get_param_files(self, potential):
+    def _get_param_files(self, potential: Potential):
         """
         Retrieve the parameter files from the potential.
 

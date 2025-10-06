@@ -245,9 +245,9 @@ class DUNNTrainer(KLIFFTrainer):
         save_path = '/'.join(save_path_and_name.split('/')[:-1])
 
         if upload_to_kimkit:
-            potential.save_potential_files(work_dir=save_path,
-                                           import_to_kimkit=True,
-                                           write_to_tmp_dir=True)
+            _ = potential.save_potential_files(work_dir=save_path,
+                                               import_to_kimkit=True,
+                                               write_to_tmp_dir=True)
 
         return potential.model, loss
 

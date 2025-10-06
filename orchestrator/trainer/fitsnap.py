@@ -431,7 +431,7 @@ class FitSnapTrainer(Trainer):
                 True if row == 'Force' else False for row in row_types
             ]
             assert (len(weights) * 3) == sum(force_rows), \
-                f"{len(weights)} weights given, need {sum(force_rows)/3}"
+                f"{len(weights)} weights given, need {sum(force_rows) / 3}"
             energy_rows = [
                 True if row == 'Energy' else False for row in row_types
             ]
@@ -510,10 +510,10 @@ class FitSnapTrainer(Trainer):
             training_files = [f'{save_path}/training_script.py']
             if include_weights_file is True:
                 training_files.append(f'{save_path}/weights.txt')
-            potential.save_potential_files(work_dir=save_path,
-                                           training_files=training_files,
-                                           import_to_kimkit=True,
-                                           write_to_tmp_dir=False)
+            _ = potential.save_potential_files(work_dir=save_path,
+                                               training_files=training_files,
+                                               import_to_kimkit=True,
+                                               write_to_tmp_dir=False)
 
         return snap, snap.solver.errors
 
@@ -649,9 +649,9 @@ class FitSnapTrainer(Trainer):
 
         if potential.parameter_path is not None:
             # potential._write_potential_to_file(save_path)
-            potential.save_potential_files(work_dir=save_path,
-                                           import_to_kimkit=False,
-                                           write_to_tmp_dir=False)
+            _ = potential.save_potential_files(work_dir=save_path,
+                                               import_to_kimkit=False,
+                                               write_to_tmp_dir=False)
             return potential.parameter_path
         else:  # first save after a local train()
 
@@ -669,12 +669,26 @@ class FitSnapTrainer(Trainer):
                 errors = loss
             snap.output.output(fit_coefficients, errors)
 
-            # for compatibility with older versions of LAMMPS
+            # for compatibility with older versions of LAMMPS and KIM drivers
             system('sed -i "s/switchinnerflag 0/# switchinnerflag 0 commented '
                    f'by orchestrator/" {save_path}/{potential_name}.snapparam')
-            # for compatibility with 000 version of kim model
-            system('sed -i "s/wselfallflag 0/# wselfallflag 0 commented '
-                   f'by orchestrator/" {save_path}/{potential_name}.snapparam')
+
+            # for compatibility with KIM model driver SNAP__MD_536750310735_000
+            # possibility of training a simulator model and reloading a
+            # portable model that can't handle these settings flags, but
+            # I think build_potential() should catch the settings issue
+            if potential.kim_item_type == "portable-model":
+                if potential.model_driver == "SNAP__MD_536750310735_000":
+                    system(
+                        'sed -i "s/wselfallflag 0/# wselfallflag 0 commented '
+                        'by orchestrator/"'
+                        f' {save_path}/{potential_name}.snapparam')
+                    system('sed -i "s/chemflag 0/# chemflag 0 commented '
+                           'by orchestrator/"'
+                           f' {save_path}/{potential_name}.snapparam')
+                    system('sed -i "s/bnormflag 0/# bnormflag 0 commented '
+                           'by orchestrator/"'
+                           f' {save_path}/{potential_name}.snapparam')
 
             potential.parameter_path = f'{save_path}/{potential_name}'
             potential.training_hash = snap.config.hash

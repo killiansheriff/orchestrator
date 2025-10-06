@@ -237,13 +237,13 @@ class KIMPotential(Potential):
         self,
         kim_id: str = None,
         species: List[str] = None,
-        kim_item_type: str = 'portable-model',
         model_name_prefix: str = None,
         param_files: List[str] = None,
         training_files: Optional[List[str]] = None,
         potential_files: Optional[List[str]] = None,
         model_driver: str = None,
         model_defn: Optional[str] = None,
+        model_init: Optional[str] = None,
         work_dir: str = '.',
         previous_item_name: str = None,
     ) -> str:
@@ -277,7 +277,7 @@ class KIMPotential(Potential):
 
         Otherwise, you can manually generate a kimcode yourself by
         passing the same human-readable prefix to
-        kimkit.kimcodes.generate_new_kim_id(prefix, kim_item_type)
+        kimkit.kimcodes.generate_new_kim_id(prefix)
         which will return a new unique kimcode. Then you can simply
         assign that as the item's kim_id.
 
@@ -286,10 +286,6 @@ class KIMPotential(Potential):
         :type kim_id: str
         :param species: List of supported species
         :type species: list(str)
-        :param kim_item_type: type of potential, should be either
-            'portable-model' or 'simulator-model', depending on whether
-            the model requires a model-driver.
-        :type kim_item_type: str
         :param model_name_prefix: Human readable prefix to a KIM Model ID,
             must be provided if kim_id is not
         :type model_name_prefix: str
@@ -314,6 +310,9 @@ class KIMPotential(Potential):
         :param model_defn: for simulator-models, commands needed to
             initialize the potential in the simulator (typically LAMMPS)
         :type model_defn: str
+        :param model_init: for simulator-models, commands needed to
+            initialize the model in the simulator (typically LAMMPS)
+        :type model_init: str
         :param work_dir: where to make temporary files
         :type work_dir: str
         :param previous_item_name: any name the item was referred to
@@ -365,7 +364,7 @@ class KIMPotential(Potential):
             kim_id=kim_id,
             model_name_prefix=model_name_prefix,
             model_defn=model_defn,
-            kim_item_type=kim_item_type,
+            model_init=model_init,
             param_files=param_files,
             training_files=training_files,
             potential_files=potential_files,

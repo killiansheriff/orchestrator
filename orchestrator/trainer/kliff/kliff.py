@@ -1,7 +1,6 @@
 import pathlib
 import shutil
 from glob import glob
-
 from ase import Atoms
 import yaml
 from kliff.legacy.loss import Loss
@@ -182,9 +181,9 @@ class KLIFFTrainer(Trainer):
 
         self.logger.info(f'Saving model state in {save_path}')
         # potential._write_potential_to_file(f'{save_path}/final_model')
-        potential.save_potential_files(work_dir=f'{save_path}/final_model',
-                                       import_to_kimkit=False,
-                                       write_to_tmp_dir=False)
+        _ = potential.save_potential_files(work_dir=f'{save_path}/final_model',
+                                           import_to_kimkit=False,
+                                           write_to_tmp_dir=False)
         try:
             if potential.model.is_torch and loss is not None:
                 loss.save_optimizer_state(f'{save_path}/optimizer_state.pkl')
@@ -193,8 +192,8 @@ class KLIFFTrainer(Trainer):
             pass
 
         potential.install_potential_in_kim_api(save_path=save_path,
-                                               potential_name=potential_name,
-                                               install_locality='environment')
+                                               potential_name=potential.kim_id,
+                                               install_locality='CWD')
 
         # clean up any default files if present.
         # Usually after the training you might have kliff.log, *.pkl, and

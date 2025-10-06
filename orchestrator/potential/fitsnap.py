@@ -226,6 +226,35 @@ class FitSnapPotential(Potential):
         self.logger.info('Finished constructing FitSnap potential')
         self.model = snap
 
+        if self.kim_item_type == "portable-model":
+            if self.model_driver == "SNAP__MD_536750310735_000":
+                if (snap.config.sections['BISPECTRUM'].wselfallflag != 0
+                        or snap.config.sections['BISPECTRUM'].chemflag != 0
+                        or snap.config.sections['BISPECTRUM'].bnormflag != 0
+                        or snap.config.sections['BISPECTRUM'].switchinnerflag
+                        != 0):
+                    raise ValueError("wselfallflag, chemflag, bnormflag,"
+                                     " and switchinnerflag are not supported"
+                                     " by the KIM Model driver version 000"
+                                     " for SNAP, which is the current KIM "
+                                     "default. Version 001 will become the "
+                                     "new default once it is released.")
+
+            elif self.model_driver == "SNAP__MD_536750310735_001":
+                # remove check if this gets added to the driver
+                if snap.config.sections['BISPECTRUM'].switchinnerflag != 0:
+                    raise ValueError("switchinnerflag is not supported "
+                                     "by the KIM Model driver version 001"
+                                     " for SNAP.")
+                # check to be removed once development 001 driver fixes bug
+                if snap.config.sections['BISPECTRUM'].quadraticflag != 0:
+                    raise ValueError("The developmental KIM Model driver "
+                                     "version 001 for SNAP currently produces"
+                                     " incorrect forces for quadratic models."
+                                     " Please use version 000 for quadratic.")
+        else:
+            pass
+
         return self.model
 
     def load_potential(self, path: str):
@@ -293,13 +322,13 @@ class FitSnapPotential(Potential):
         self,
         kim_id: str = None,
         species: List[str] = None,
-        kim_item_type: str = 'portable-model',
         model_name_prefix: str = None,
         param_files: List[str] = None,
         training_files: Optional[List[str]] = None,
         potential_files: Optional[List[str]] = None,
         model_driver: str = None,
         model_defn: Optional[str] = None,
+        model_init: Optional[str] = None,
         work_dir: str = '.',
         previous_item_name: str = None,
     ) -> str:
@@ -333,7 +362,7 @@ class FitSnapPotential(Potential):
 
         Otherwise, you can manually generate a kimcode yourself by
         passing the same human-readable prefix to
-        kimkit.kimcodes.generate_new_kim_id(prefix, kim_item_type)
+        kimkit.kimcodes.generate_new_kim_id(prefix)
         which will return a new unique kimcode. Then you can simply
         assign that as the item's kim_id.
 
@@ -342,10 +371,6 @@ class FitSnapPotential(Potential):
         :type kim_id: str
         :param species: List of supported species
         :type species: list(str)
-        :param kim_item_type: type of potential, should be either
-            'portable-model' or 'simulator-model', depending on whether
-            the model requires a model-driver.
-        :type kim_item_type: str
         :param model_name_prefix: Human readable prefix to a KIM Model ID,
             must be provided if kim_id is not
         :type model_name_prefix: str
@@ -370,6 +395,9 @@ class FitSnapPotential(Potential):
         :param model_defn: for simulator-models, commands needed to
             initialize the potential in the simulator (typically LAMMPS)
         :type model_defn: str
+        :param model_init: for simulator-models, commands needed to
+            initialize the model in the simulator (typically LAMMPS)
+        :type model_init: str
         :param work_dir: where to make temporary files
         :type work_dir: str
         :param previous_item_name: any name the item was referred to
@@ -389,15 +417,12 @@ class FitSnapPotential(Potential):
             if model_name_prefix is None:
                 raise TypeError("One of kim_id or model_name_prefix"
                                 "is required to initialize a potential")
-            self.generate_new_kim_id(model_name_prefix, kim_item_type)
+            self.generate_new_kim_id(model_name_prefix)
         # don't overwrite the working model, if any
         if self.model is None:
             self.model = self.build_potential()
-
-        if param_files is None:
-            param_files = self._init_param_files(dest_path=self.parameter_path)
-        sorted_param_files = self._sort_param_files(
-            param_files, kim_item_type=kim_item_type)
+        param_files = self._init_param_files(dest_path=self.parameter_path)
+        sorted_param_files = self._sort_param_files(param_files)
 
         try:
             self.potential_files += potential_files
@@ -426,7 +451,7 @@ class FitSnapPotential(Potential):
             kim_id=kim_id,
             model_name_prefix=model_name_prefix,
             model_defn=model_defn,
-            kim_item_type=kim_item_type,
+            model_init=model_init,
             param_files=self.param_files,
             training_files=training_files,
             potential_files=self.potential_files,
@@ -441,7 +466,6 @@ class FitSnapPotential(Potential):
     def _sort_param_files(
         self,
         param_files: str,
-        kim_item_type: str,
     ) -> list[str]:
         """
         Helper function to sort param files for FitSnap
@@ -486,9 +510,7 @@ class FitSnapPotential(Potential):
         if len(snapmod_file) >= 1:
             for i in range(len(snapmod_file)):
                 added_hybridparam = self._add_hybridparam_file_if_required(
-                    snapmod_file[i],
-                    kim_item_type,
-                )
+                    snapmod_file[i])
                 if added_hybridparam is not None:
                     param_files_sorted = param_files_sorted + added_hybridparam
                     break
@@ -504,7 +526,6 @@ class FitSnapPotential(Potential):
     def _add_hybridparam_file_if_required(
         self,
         fitsnap_mod_file: str,
-        kim_item_type: str,
     ) -> str:
         """Parse the .mod file associated with this potential,
         and use it to create a .hybridparam file if required.
@@ -566,10 +587,10 @@ class FitSnapPotential(Potential):
 
                 f2.write("\n")
             f2.close()
-            if kim_item_type == "portable-model":
+            if self.kim_item_type == "portable-model":
                 return [hybridparam_file]
 
-            if kim_item_type == "simulator-model":
+            if self.kim_item_type == "simulator-model":
                 with open(zbl_pair_file, "w") as f:
                     for pair in atomic_number_pairs:
                         atomic_number2 = str(pair[0])
@@ -640,9 +661,9 @@ class FitSnapPotential(Potential):
     def install_potential_in_kim_api(
         self,
         potential_name='kim_potential',
-        kim_item_type='portable-model',
         model_defn=None,
-        install_locality='environment',
+        model_init=None,
+        install_locality='user',
         save_path='.',
         import_into_kimkit=True,
     ) -> None:
@@ -654,23 +675,19 @@ class FitSnapPotential(Potential):
         :param potential_name: name of the potential.,
             |default| 'kim_potential'
         :type potential_name: str
-        :param kim_item_type: type of potential, should be either
-            'portable-model' or 'simulator-model', depending on whether
-            the model requires a model-driver.
-        :type kim_item_type: str
         :param model_defn: for simulator-models, commands needed to
             initialize the potential in the simulator (typically LAMMPS)
         :type model_defn: str
         :param install_locality: kim-api-collections-management collection
             to install into. Options include "user", "system", "CWD",
-            and "environment-variable" |default| "CWD"
+            and "environment" |default| "user"
         :type install_locality: str
         :param save_path: location where the files associated with the
             potential are on disk. The files should already be written
             to save_path. |default| "."
         """
         param_files = self._init_param_files(dest_path=self.parameter_path)
-        sorted_param_files = self._sort_param_files(param_files, kim_item_type)
+        sorted_param_files = self._sort_param_files(param_files)
         potential_files = []
         for file in param_files:
             if file not in sorted_param_files:
@@ -678,7 +695,7 @@ class FitSnapPotential(Potential):
         self.potential_files = potential_files
         self.param_files = sorted_param_files
 
-        if kim_item_type == "portable-model":
+        if self.kim_item_type == "portable-model":
             try:
                 self.model_driver
             except AttributeError:
@@ -686,8 +703,8 @@ class FitSnapPotential(Potential):
                 self.model_driver = "SNAP__MD_536750310735_000"
         return super().install_potential_in_kim_api(
             potential_name=potential_name,
-            kim_item_type=kim_item_type,
             model_defn=model_defn,
+            model_init=model_init,
             install_locality=install_locality,
             save_path=save_path,
             import_into_kimkit=import_into_kimkit)

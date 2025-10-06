@@ -144,6 +144,8 @@ class Potential(Recorder, ABC):
                                      "specified in input or a potential"
                                      "attribute") from e
 
+        self.kim_item_type = kim_item_type
+
         if kim_id is not None:
             if kimcodes.iskimid(kim_id):
                 self.kim_id = kim_id
@@ -162,14 +164,21 @@ class Potential(Recorder, ABC):
                     for element in self.species:
                         species_string += element
                     prefix = model_name_prefix + f"_{species_string}"
-                    self.generate_new_kim_id(prefix,
-                                             kim_item_type=kim_item_type)
+                    self.generate_new_kim_id(prefix)
                 else:
                     raise RuntimeError("Either a kim_id or a"
                                        "model_name_prefix is required"
                                        "to initialize a potential.")
 
-        self.kim_item_type = kim_item_type
+        if model_driver:
+            self.model_driver = model_driver
+        else:
+            try:
+                model_driver = self.model_driver
+            except AttributeError as e:
+                raise AttributeError(
+                    "A model driver must be specified"
+                    "as input or a potential attribute") from e
 
         if param_files:
             self.param_files = param_files
@@ -188,15 +197,6 @@ class Potential(Recorder, ABC):
         potential_files += self.param_files
         potential_files += self.training_files
         self.potential_files = potential_files
-        if model_driver:
-            self.model_driver = model_driver
-        else:
-            try:
-                model_driver = self.model_driver
-            except AttributeError as e:
-                raise AttributeError(
-                    "A model driver must be specified"
-                    "as input or a potential attribute") from e
 
         if kim_api:
             self.kim_api = kim_api
@@ -300,7 +300,7 @@ class Potential(Recorder, ABC):
         """
         pass
 
-    def generate_new_kim_id(self, id_prefix: str, kim_item_type: str) -> str:
+    def generate_new_kim_id(self, id_prefix: str) -> str:
         """
         Generate a new kimcode for the potential
 
@@ -308,23 +308,11 @@ class Potential(Recorder, ABC):
             generated, must contain only alphanumeric characters
             and underscores, must begin with a letter.
         :type id_prefix: str
-        :param kim_item_type: what type of kim object to create an ID for.
-            For potentials, this should be either "portable-model" or
-            "simulator-model", depending on whether the model uses a driver
-            to implement its calculations, or runs commands in a simulator
-            program (e.g. lammps, ASE) respectively.
-        :type kim_item_type: str
         :returns: a correctly formatted kimcode
         :rtype: str
         """
 
-        kim_model_types = ("portable-model", "simulator-model")
-
-        if kim_item_type not in kim_model_types:
-            raise ValueError(
-                "kim_item_type must be 'portable-model' or 'simulator-model")
-
-        self.kim_id = kimcodes.generate_kimcode(id_prefix, kim_item_type)
+        self.kim_id = kimcodes.generate_kimcode(id_prefix, self.kim_item_type)
         return self.kim_id
 
     def get_potential_files(self,
@@ -364,7 +352,6 @@ class Potential(Recorder, ABC):
 
     def save_potential_files(self,
                              kim_id: str = None,
-                             kim_item_type: str = 'simulator-model',
                              model_name_prefix: str = None,
                              param_files: List[str] = None,
                              training_files: Optional[List[str]] = None,
@@ -386,10 +373,6 @@ class Potential(Recorder, ABC):
 
         :param kim_id: Valid KIM Model ID, Alchemy_W__MO_000000999999_000
         :type kim_id: str
-        :param kim_item_type: type of potential, should be either
-            'portable-model' or 'simulator-model', depending on whether
-            the model requires a model-driver.
-        :type kim_item_type: str
         :param model_name_prefix: Human readable prefix to a KIM Model ID,
             must be provided if kim_id is not
         :type model_name_prefix: str
@@ -470,6 +453,8 @@ class Potential(Recorder, ABC):
         elif leader == "SM":
             item_type = "simulator-model"
 
+        kim_item_type = self.kim_item_type
+
         if kim_item_type != item_type:
             kim_item_type = item_type
             self.kim_item_type = kim_item_type
@@ -496,76 +481,77 @@ class Potential(Recorder, ABC):
                 potential_dir = os.path.join(tmp_dir, self.kim_id)
                 os.makedirs(potential_dir, exist_ok=True)
                 self._ready_potential_for_saving(param_files=param_files,
-                                                 kim_item_type=kim_item_type,
                                                  model_defn=model_defn,
                                                  model_init=model_init,
-                                                 potential_dir=potential_dir)
+                                                 potential_dir=tmp_dir)
 
-                if import_to_kimkit:
+                update_version = False
+                kimkit_matching_items = mongodb.find_item_by_kimcode(
+                    self.kim_id)
 
-                    update_version = False
-                    kimkit_matching_items = mongodb.find_item_by_kimcode(
-                        self.kim_id)
-
-                    # if an item with that kim_id already exists
-                    # create a new version of the item
-                    if kimkit_matching_items is not None:
-                        if len(kimkit_matching_items) > 0:
-                            update_version = True
-                        else:
-                            update_version = False
+                # if an item with that kim_id already exists
+                # create a new version of the item
+                if kimkit_matching_items is not None:
+                    if len(kimkit_matching_items) > 0:
+                        update_version = True
                     else:
                         update_version = False
+                else:
+                    update_version = False
 
-                    # if a new version must be created,
-                    # but the user has set fork_potential = True
-                    # don't update the version, call _fork_potential() instead.
-                    if update_version:
-                        if fork_potential:
-                            update_version = False
+                # if a new version must be created,
+                # but the user has set fork_potential = True
+                # don't update the version, call _fork_potential() instead.
+                if update_version:
+                    if fork_potential:
+                        update_version = False
 
-                    if not update_version:
+                if not update_version:
 
-                        if not fork_potential:
+                    if not fork_potential:
 
-                            self._save_potential_to_kimkit(
-                                kim_id=self.kim_id,
-                                species=self.species,
-                                kim_item_type=kim_item_type,
-                                param_files=self.param_files,
-                                training_files=self.training_files,
-                                potential_files=self.potential_files,
-                                model_driver=self.model_driver,
-                                model_defn=model_defn,
-                                work_dir=potential_dir,
-                                previous_item_name=previous_item_name)
-
-                        else:
-
-                            self._fork_potential(
-                                new_kim_id_prefix=model_name_prefix,
-                                metadata_update_dict=metadata_dict,
-                                provenance_comments="Orchestrator Forked")
+                        self._save_potential_to_kimkit(
+                            kim_id=self.kim_id,
+                            species=self.species,
+                            param_files=self.param_files,
+                            training_files=self.training_files,
+                            potential_files=self.potential_files,
+                            model_driver=self.model_driver,
+                            model_defn=model_defn,
+                            work_dir=potential_dir,
+                            previous_item_name=previous_item_name)
 
                     else:
 
-                        self._create_new_version_of_potential(
-                            kim_id=self.kim_id, metadata_dict=metadata_dict)
+                        self._fork_potential(
+                            new_kim_id_prefix=model_name_prefix,
+                            metadata_update_dict=metadata_dict,
+                            provenance_comments="Orchestrator Forked",
+                            model_defn=model_defn,
+                            model_init=model_init,
+                        )
 
-                    # set fitsnap parameter_path to kimkit directory
-                    if self.model_type == "snap":
-                        path = self._get_kimkit_repository_dir(
-                            kim_id=self.kim_id)
-                        __, name = os.path.split(self.parameter_path)
-                        new_parameter_path = os.path.join(path, name)
-                        self.parameter_path = new_parameter_path
+                else:
+
+                    self._create_new_version_of_potential(
+                        kim_id=self.kim_id,
+                        metadata_dict=metadata_dict,
+                        model_defn=model_defn,
+                        model_init=model_init,
+                    )
+
+                # set fitsnap parameter_path to kimkit directory
+                if self.model_type == "snap":
+                    path = self._get_kimkit_repository_dir(kim_id=self.kim_id)
+                    __, name = os.path.split(self.parameter_path)
+                    new_parameter_path = os.path.join(path, name)
+                    self.parameter_path = new_parameter_path
 
         else:
 
             self._write_potential_to_file(path=work_dir)
 
             self._ready_potential_for_saving(param_files=param_files,
-                                             kim_item_type=kim_item_type,
                                              model_defn=model_defn,
                                              model_init=model_init,
                                              potential_dir=work_dir)
@@ -596,12 +582,12 @@ class Potential(Recorder, ABC):
                         self._save_potential_to_kimkit(
                             kim_id=self.kim_id,
                             species=self.species,
-                            kim_item_type=kim_item_type,
                             param_files=self.param_files,
                             training_files=self.training_files,
                             potential_files=self.potential_files,
                             model_driver=self.model_driver,
                             model_defn=model_defn,
+                            model_init=model_init,
                             work_dir=work_dir,
                             previous_item_name=previous_item_name)
 
@@ -610,28 +596,43 @@ class Potential(Recorder, ABC):
                         self._fork_potential(
                             new_kim_id_prefix=model_name_prefix,
                             metadata_update_dict=metadata_dict,
-                            provenance_comments="Forked by the orchestrator")
+                            provenance_comments="Forked by the orchestrator",
+                            model_defn=model_defn,
+                            model_init=model_init,
+                        )
 
                 else:
 
                     self._create_new_version_of_potential(
-                        kim_id=self.kim_id, metadata_dict=metadata_dict)
+                        kim_id=self.kim_id,
+                        metadata_dict=metadata_dict,
+                        model_defn=model_defn,
+                        model_init=model_init,
+                    )
+
+            else:
+
+                # if not using kimkit at all
+                # call _ready_potential_for_saving() directly
+                self._ready_potential_for_saving(param_files=param_files,
+                                                 model_defn=model_defn,
+                                                 model_init=model_init,
+                                                 potential_dir=work_dir)
 
         return self.kim_id
 
-    def _save_potential_to_kimkit(
-            self,
-            kim_id: Optional[str] = None,
-            species: Optional[List[str]] = None,
-            kim_item_type: Optional[str] = 'portable-model',
-            model_name_prefix: Optional[str] = None,
-            param_files: Optional[List[str]] = None,
-            training_files: Optional[List[str]] = None,
-            potential_files: Optional[List[str]] = None,
-            model_driver: Optional[str] = None,
-            model_defn: Optional[str] = None,
-            work_dir: str = '.',
-            previous_item_name: str = None) -> str:
+    def _save_potential_to_kimkit(self,
+                                  kim_id: Optional[str] = None,
+                                  species: Optional[List[str]] = None,
+                                  model_name_prefix: Optional[str] = None,
+                                  param_files: Optional[List[str]] = None,
+                                  training_files: Optional[List[str]] = None,
+                                  potential_files: Optional[List[str]] = None,
+                                  model_driver: Optional[str] = None,
+                                  model_defn: Optional[str] = None,
+                                  model_init: Optional[str] = None,
+                                  work_dir: str = '.',
+                                  previous_item_name: str = None) -> str:
         """
         Save a potential into KIMKit for storage
 
@@ -662,7 +663,7 @@ class Potential(Recorder, ABC):
 
         Otherwise, you can manually generate a kimcode yourself by
         passing the same human-readable prefix to
-        kimkit.kimcodes.generate_new_kim_id(prefix, kim_item_type)
+        kimkit.kimcodes.generate_new_kim_id(prefix)
         which will return a new unique kimcode. Then you can simply
         assign that as the item's kim_id.
 
@@ -671,10 +672,6 @@ class Potential(Recorder, ABC):
         :type kim_id: str
         :param species: List of supported species
         :type species: list(str)
-        :param kim_item_type: type of potential, should be either
-            'portable-model' or 'simulator-model', depending on whether
-            the model requires a model-driver.
-        :type kim_item_type: str
         :param model_name_prefix: Human readable prefix to a KIM Model ID,
             must be provided if kim_id is not
         :type model_name_prefix: str
@@ -699,6 +696,8 @@ class Potential(Recorder, ABC):
         :param model_defn: for simulator-models, commands needed to
             initialize the potential in the simulator (typically LAMMPS)
         :type model_defn: str
+        :param model_init: optional for simulator-models, commands needed to
+            initialize the potential in the simulator (typically LAMMPS)
         :param work_dir: where to make temporary files
         :type work_dir: str
         :param previous_item_name: any name the item was referred to
@@ -730,6 +729,26 @@ class Potential(Recorder, ABC):
         # make sure all files associated with the potential
         # are in potential_files
 
+        potential_type = 'Unknown'
+        kim_api_version = '2.3.0'
+
+        if not kim_id:
+            try:
+                kim_id = self.kim_id
+            except AttributeError:
+                if model_name_prefix:
+                    kim_id = self.generate_new_kim_id(
+                        id_prefix=model_name_prefix)
+                else:
+                    raise AttributeError("""If the potential has no kim_id
+                    attribute, either a valid kimcode must must be specified
+                    as kim_id, or a model_name_prefix must be provided
+                    to generate a new kimcode to assign to kim_id.""")
+
+        if not kimcodes.iskimid(kim_id):
+            raise TypeError("""kim_id must be a valid kimcode,
+                        see: https://openkim.org/doc/schema/kim-ids/""")
+
         if not potential_files:
             potential_files = []
         for file in self.param_files:
@@ -747,33 +766,13 @@ class Potential(Recorder, ABC):
                 if file not in potential_files:
                     potential_files.append(file)
 
-        potential_type = 'Unknown'
-        kim_api_version = '2.3.0'
-
-        if not kim_id:
-            try:
-                kim_id = self.kim_id
-            except AttributeError:
-                if model_name_prefix:
-                    kim_id = kimcodes.generate_new_kim_id(
-                        name=model_name_prefix, item_type=kim_item_type)
-                else:
-                    raise AttributeError("""If the potential has no kim_id
-                    attribute, either a valid kimcode must must be specified
-                    as kim_id, or a model_name_prefix must be provided
-                    to generate a new kimcode to assign to kim_id.""")
-
-        if not kimcodes.iskimid(kim_id):
-            raise TypeError("""kim_id must be a valid kimcode,
-                        see: https://openkim.org/doc/schema/kim-ids/""")
-
         title = f'{kim_id}'
         description = f"""Potential {kim_id} created by the Orchestrator"""
 
         md = {
             'title': title,
             'potential-type': potential_type,
-            'kim-item-type': kim_item_type,
+            'kim-item-type': self.kim_item_type,
             'kim-api-version': kim_api_version,
             'species': species,
             'model-driver': model_driver,
@@ -781,13 +780,15 @@ class Potential(Recorder, ABC):
             'extended-id': kim_id,
         }
 
-        if kim_item_type == 'simulator-model':
+        if self.kim_item_type == 'simulator-model':
             md['run-compatibility'] = 'portable-models'
             md['simulator-name'] = 'lammps'
             if self.model_type == "snap":
                 md['simulator-potential'] = 'snap'
             elif self.model_type == "dnn":
                 md['simulator-potential'] = 'hdnnp'
+            elif self.model_type == "ChIMES":
+                md['simulator-potential'] = 'chimesFF'
 
         tmp_txz_path = os.path.join(work_dir, 'tmp.txz')
         cmakelists_tmp_path = os.path.join(work_dir, 'CMakeLists.txt.tmp')
@@ -813,11 +814,15 @@ class Potential(Recorder, ABC):
         except FileNotFoundError:
             pass
 
-        return kim_id
+        return self.kim_id
 
-    def _create_new_version_of_potential(self,
-                                         kim_id: str,
-                                         metadata_dict: dict = None) -> None:
+    def _create_new_version_of_potential(
+        self,
+        kim_id: str,
+        metadata_dict: dict = None,
+        model_defn: Optional[str] = None,
+        model_init: Optional[str] = None,
+    ) -> str:
         """
         Create an updated version of an existing kim potential
 
@@ -830,6 +835,13 @@ class Potential(Recorder, ABC):
         :param metadata_dict: dict of any changes to metadata fields for the
             new version. |default| ``None``
         :type metadata_dict: dict
+        :param model_defn: optional for simulator-models, commands needed to
+            define the potential in the simulator (typically LAMMPS)
+        :type model_defn: str
+        :param model_init: optional for simulator-models, commands needed to
+            initialize the potential in the simulator (typically LAMMPS)
+        :returns: id of the newly updated potential
+        :rtype: str
         """
 
         # only create a new version if the requested version
@@ -840,8 +852,20 @@ class Potential(Recorder, ABC):
             comment = 'Forking instead of upversioning old version'
             self._fork_potential(kim_id,
                                  metadata_dict,
-                                 provenance_comments=comment)
-            return
+                                 provenance_comments=comment,
+                                 model_defn=model_defn,
+                                 model_init=model_init)
+            return self.kim_id
+
+        # increment the version of the kim_id
+        name, leader, num, version = kimcodes.parse_kim_code(self.kim_id)
+
+        int_version = int(version)
+        new_version = int_version + 1
+
+        new_kimcode = kimcodes.format_kim_code(name, leader, num, new_version)
+
+        self.kim_id = new_kimcode
 
         # don't overwrite the working model, if any
         if self.model is None:
@@ -849,39 +873,70 @@ class Potential(Recorder, ABC):
 
         with tempfile.TemporaryDirectory() as path:
 
+            self._ready_potential_for_saving(param_files=self.param_files,
+                                             model_defn=model_defn,
+                                             model_init=model_init,
+                                             potential_dir=path)
+
             tmp_txz_path = os.path.join(path, 'tmp.txz')
 
             with tarfile.open(tmp_txz_path, mode='w:xz') as tar:
                 for file in self.potential_files:
-                    tar.add(file, arcname=os.path.split(file)[1])
+                    filename = os.path.split(file)[1]
+                    name_string, extension = filename.split('.')
+                    if kimcodes.isextendedkimid(name_string):
+                        filename = self.kim_id + '.' + extension
+                    tar.add(file, arcname=filename)
 
             with tarfile.open(tmp_txz_path) as tar:
 
                 if metadata_dict:
 
-                    models.version_update(kim_id,
-                                          tar,
-                                          metadata_update_dict=metadata_dict)
+                    try:
+                        models.version_update(
+                            kim_id, tar, metadata_update_dict=metadata_dict)
+                    except cf.NotRunAsEditorError:
+                        old_kimcode = kimcodes.format_kim_code(
+                            name, leader, num, version)
+                        self.kim_id = old_kimcode
+
+                        name, __, __, __ = kimcodes.parse_kim_code(self.kim_id)
+                        prefix = "orchestrator_forked_" + name
+                        self._fork_potential(
+                            new_kim_id_prefix=prefix,
+                            metadata_update_dict=metadata_dict,
+                            provenance_comments="Orchestrator Forked",
+                            model_defn=model_defn,
+                            model_init=model_init,
+                        )
 
                 else:
-                    models.version_update(kim_id, tar)
+                    try:
+                        models.version_update(kim_id, tar)
+                    except cf.NotRunAsEditorError:
+                        old_kimcode = kimcodes.format_kim_code(
+                            name, leader, num, version)
+                        self.kim_id = old_kimcode
 
-        # increment the version of the kim_id
-        name, leader, num, version = kimcodes.parse_kim_code(self.kim_id)
+                        name, __, __, __ = kimcodes.parse_kim_code(self.kim_id)
+                        prefix = "orchestrator_forked_" + name
+                        self._fork_potential(
+                            new_kim_id_prefix=prefix,
+                            provenance_comments="Orchestrator Forked",
+                            model_defn=model_defn,
+                            model_init=model_init,
+                        )
 
-        version = int(version)
-        version = version + 1
-
-        new_kimcode = kimcodes.format_kim_code(name, leader, num, version)
-
-        self.kim_id = new_kimcode
+        return self.kim_id
 
     def _fork_potential(
         self,
         new_kim_id_prefix: str = None,
         metadata_update_dict: dict = None,
         provenance_comments: str = None,
-    ) -> None:
+        model_defn: Optional[str] = None,
+        model_init: Optional[str] = None,
+    ) -> str:
         """
         Create a new version of the potential with a new KIM_ID,
         owned by the user who called _fork_potential(), with or
@@ -895,6 +950,13 @@ class Potential(Recorder, ABC):
         :param provenance_comments: short comments about why this item
             is being forked, optional.
         :type provenance_comments: str
+        :param model_defn: optional for simulator-models, commands needed to
+            define the potential in the simulator (typically LAMMPS)
+        :type model_defn: str
+        :param model_init: optional for simulator-models, commands needed to
+            initialize the potential in the simulator (typically LAMMPS)
+        :returns: id of the newly forked potential
+        :rtype: str
         """
 
         # don't overwrite the working model, if any
@@ -903,44 +965,53 @@ class Potential(Recorder, ABC):
 
         old_prefix, leader, __, __ = kimcodes.parse_kim_code(self.kim_id)
 
+        old_kim_id = self.kim_id
+
         if leader == "MO":
-            kim_item_type = 'portable-model'
+            self.kim_item_type = 'portable-model'
         elif leader == "SM":
-            kim_item_type = 'simulator-model'
+            self.kim_item_type = 'simulator-model'
 
         # generate a new kim_id for the item
         # use a new prefix if supplied
         # otherwise just generate a new ID number
         # using the existing prefix with 'forked_' prepended
         if new_kim_id_prefix:
-            self.generate_new_kim_id(id_prefix=new_kim_id_prefix,
-                                     kim_item_type=kim_item_type)
+            self.generate_new_kim_id(id_prefix=new_kim_id_prefix)
         else:
             forked_old_prefix = 'forked_' + old_prefix
-            self.generate_new_kim_id(id_prefix=forked_old_prefix,
-                                     kim_item_type=kim_item_type)
+            self.generate_new_kim_id(id_prefix=forked_old_prefix)
 
         with tempfile.TemporaryDirectory() as path:
 
+            self._ready_potential_for_saving(param_files=self.param_files,
+                                             model_defn=model_defn,
+                                             model_init=model_init,
+                                             potential_dir=path)
+
             # write files to a temporary path,
             # and create a tar archive from them
-            self.model.write_kim_model(path)
+            self._write_potential_to_file(path=path)
 
             tmp_txz_path = os.path.join(path, 'tmp.txz')
 
             with tarfile.open(tmp_txz_path, mode='w:xz') as tar:
                 for file in self.potential_files:
-                    tar.add(file, arcname=os.path.split(file)[1])
+                    filename = os.path.split(file)[1]
+                    name_string, extension = filename.split('.')
+                    if kimcodes.isextendedkimid(name_string):
+                        filename = self.kim_id + '.' + extension
+                    tar.add(file, arcname=filename)
 
             with tarfile.open(tmp_txz_path) as tar:
 
-                models.fork(self.kim_id,
+                models.fork(old_kim_id,
+                            self.kim_id,
                             tar,
                             metadata_update_dict=metadata_update_dict,
                             provenance_comments=provenance_comments)
 
-        # delete the temporary tar archive from disk
-        shutil.rmtree(path)
+        return self.kim_id
 
     def evaluate(
         self,
@@ -1000,9 +1071,9 @@ class Potential(Recorder, ABC):
     def install_potential_in_kim_api(
         self,
         potential_name='kim_potential',
-        kim_item_type='portable-model',
         model_defn=None,
-        install_locality='environment',
+        model_init=None,
+        install_locality='user',
         save_path='.',
         import_into_kimkit=True,
     ) -> None:
@@ -1017,16 +1088,12 @@ class Potential(Recorder, ABC):
         :param potential_name: name of the potential.,
             |default| 'kim_potential'
         :type potential_name: str
-        :param kim_item_type: type of potential, should be either
-            'portable-model' or 'simulator-model', depending on whether
-            the model requires a model-driver.
-        :type kim_item_type: str
         :param model_defn: for simulator-models, commands needed to
             initialize the potential in the simulator (typically LAMMPS)
         :type model_defn: str
         :param install_locality: kim-api-collections-management collection
             to install into. Options include "user", "system", "CWD",
-            and "environment-variable" |default| "CWD"
+            and "environment" |default| "user"
         :type install_locality: str
         :param save_path: location where the files associated with the
             potential are on disk. The files should already be written
@@ -1041,7 +1108,7 @@ class Potential(Recorder, ABC):
         # that works quite a bit differently
         # running the base class one includes non-parameter files
         # which prevents the potential from running in the KIM_API
-        if self.model_type != "snap":
+        if self.model_type != "snap" and self.model_type != "ChIMES":
             self._init_param_files(dest_path=save_path)
 
         if potential_name == 'kim_potential':
@@ -1051,8 +1118,7 @@ class Potential(Recorder, ABC):
                 prefix = potential_name + "_"
                 for element in self.species:
                     prefix = prefix + "_" + str(element)
-                potential_name = self.generate_new_kim_id(
-                    prefix, kim_item_type)
+                potential_name = self.generate_new_kim_id(prefix)
 
         kimkit_matching_items = mongodb.find_item_by_kimcode(self.kim_id)
 
@@ -1065,8 +1131,9 @@ class Potential(Recorder, ABC):
 
             self.save_potential_files(
                 kim_id=self.kim_id,
-                kim_item_type=kim_item_type,
                 param_files=self.param_files,
+                model_defn=model_defn,
+                model_init=model_init,
                 model_driver=self.model_driver,
             )
             Potential._install_into_kim_api_from_kimkit(
@@ -1074,7 +1141,7 @@ class Potential(Recorder, ABC):
             return
 
         else:
-            if kim_item_type == "simulator-model":
+            if self.kim_item_type == "simulator-model":
                 # unset the model driver
                 # since SMs don't use them
                 try:
@@ -1086,20 +1153,20 @@ class Potential(Recorder, ABC):
                 write_success = self._write_kim_api_installable_directory(
                     model_name_prefix=potential_name,
                     kim_id=self.kim_id,
-                    kim_item_type=kim_item_type,
                     dest_dir=save_path,
                     species=self.species,
-                    model_defn=model_defn)
+                    model_defn=model_defn,
+                )
             else:
                 # potential files need to be
                 # written in order to install in KIM API
                 write_success = self._write_kim_api_installable_directory(
                     model_name_prefix=potential_name,
                     kim_id=self.kim_id,
-                    kim_item_type=kim_item_type,
                     dest_dir=save_path,
                     model_driver=self.model_driver,
-                    species=self.species)
+                    species=self.species,
+                )
 
         valid_install = ['CWD', 'user', 'environment', 'system']
         if install_locality in valid_install and write_success:
@@ -1137,19 +1204,18 @@ class Potential(Recorder, ABC):
                                  "input parameter kim_id "
                                  "to delete another potential.") from e
 
-            result = os.system(f'{self.kim_api} remove --force {kimcode};'
-                               ' cd / 1> /dev/null')
-            if result == 0:
-                print('Potential removed from user collection')
-            else:
-                raise InstallPotentialError(
-                    "Could not remove potential from KIM_API")
+        result = os.system(f'{self.kim_api} remove --force {kimcode};'
+                           ' cd / 1> /dev/null')
+        if result == 0:
+            print('Potential removed from user collection')
+        else:
+            raise InstallPotentialError(
+                "Could not remove potential from KIM_API")
 
     def _write_kim_api_installable_directory(
         self,
         kim_id: Optional[str] = None,
         model_name_prefix: Optional[str] = None,
-        kim_item_type: Optional[str] = 'portable-model',
         param_files: Optional[List[str]] = None,
         training_files: Optional[List[str]] = None,
         potential_files: Optional[List[str]] = None,
@@ -1157,6 +1223,7 @@ class Potential(Recorder, ABC):
         species: Optional[List[str]] = None,
         dest_dir: str = '.',
         model_defn: list[str] = None,
+        model_init: list[str] = None,
     ) -> bool:
         """
         Write the current potential to disk for the KIM_API.
@@ -1202,12 +1269,12 @@ class Potential(Recorder, ABC):
                 kim_id = self.kim_id
             except AttributeError:
                 if model_name_prefix:
-                    kim_id = kimcodes.generate_new_kim_id(
-                        name=model_name_prefix, item_type=kim_item_type)
+                    kim_id = self.generate_new_kim_id(
+                        id_prefix=model_name_prefix)
                 else:
                     raise AttributeError("""If the potential has no kim_id
                     attribute, either a valid kimcode must must be specified
-                    as kim_id, or a model_name_prefix and kim_item_type
+                    as kim_id, or a model_name_prefix
                     must be provided to generate a new kimcode to
                     assign to kim_id.""")
 
@@ -1228,7 +1295,7 @@ class Potential(Recorder, ABC):
             if not param_files:
                 param_files = self._init_param_files(dest_path=final_path)
 
-        if not model_driver and kim_item_type == "portable-model":
+        if not model_driver and self.kim_item_type == "portable-model":
             try:
                 model_driver = self.model_driver
             except AttributeError:
@@ -1273,23 +1340,22 @@ class Potential(Recorder, ABC):
         self._write_kim_api_cmake(
             param_files=param_files,
             kim_id=kim_id,
-            kim_item_type=kim_item_type,
             model_driver=model_driver,
             work_dir=final_path,
         )
 
-        if kim_item_type == "simulator-model":
+        if self.kim_item_type == "simulator-model":
 
             self._write_smspec(potential_type=self.model_type,
                                work_dir=final_path,
-                               model_defn=model_defn)
+                               model_defn=model_defn,
+                               model_init=model_init)
 
         return True
 
     def _write_kim_api_cmake(self,
                              param_files: list[str],
                              kim_id: str,
-                             kim_item_type: str = 'portable-model',
                              model_driver: str = None,
                              work_dir: str = ".") -> None:
         """
@@ -1330,14 +1396,14 @@ class Potential(Recorder, ABC):
             param_files_basename = basename(param_file)
             param_files_basenames.append(param_files_basename)
 
-        if kim_item_type == "portable-model":
+        if self.kim_item_type == "portable-model":
             with open(cmakelists_tmp_path, 'w') as f:
                 f.write(
                     CMAKELISTS_TEMPLATE.format(
                         kim_id, model_driver, '"'
                         + '"\n                  "'.join(param_files_basenames)
                         + '"'))
-        elif kim_item_type == "simulator-model":
+        elif self.kim_item_type == "simulator-model":
             with open(cmakelists_tmp_path, 'w') as f:
                 f.write(
                     SM_CMAKELISTS_TEMPLATE.format(
@@ -1396,7 +1462,10 @@ class Potential(Recorder, ABC):
             "units": "metal"
         }
 
-        pair_style = potential_type
+        if self.model_type == "ChIMES":
+            pair_style = 'chimesFF'
+        else:
+            pair_style = potential_type
 
         if model_defn is None:
             # construct reasonable default for simple pair styles
@@ -1457,7 +1526,6 @@ class Potential(Recorder, ABC):
     def _ready_potential_for_saving(
         self,
         param_files: list[str] = None,
-        kim_item_type: str = 'simulator-model',
         model_defn: str = None,
         model_init: str = None,
         potential_dir: str = '.',
@@ -1467,9 +1535,6 @@ class Potential(Recorder, ABC):
 
         :param param_files: list of parameter files of the potential
         :type param_files: list[str]
-        :param kim_item_type: type of potential to create, options
-            include 'portable-model' and 'simulator-model'
-        :type kim_item_type: str
         :param model_defn: for simulator-models, commands needed to
             define the potential in the simulator (typically LAMMPS)
         :type model_defn: str
@@ -1479,7 +1544,6 @@ class Potential(Recorder, ABC):
         :param potential_dir: where to save the potential files
         :type potential_dir: str
         """
-
         # update the param_files
         # unless the user specifically passed some in
         # in which case use those
@@ -1505,14 +1569,13 @@ class Potential(Recorder, ABC):
 
         self._write_kim_api_cmake(param_files=self.param_files,
                                   kim_id=self.kim_id,
-                                  kim_item_type=kim_item_type,
                                   model_driver=self.model_driver,
                                   work_dir=potential_dir)
 
         cmake_file = os.path.join(potential_dir, "CMakeLists.txt")
         self.potential_files.append(cmake_file)
 
-        if kim_item_type == "simulator-model":
+        if self.kim_item_type == "simulator-model":
             self._write_smspec(potential_type=self.model_type,
                                model_defn=model_defn,
                                model_init=model_init,
@@ -1561,8 +1624,7 @@ class Potential(Recorder, ABC):
         return item_dir
 
     @staticmethod
-    def _install_into_kim_api_from_kimkit(kim_id,
-                                          install_locality="environment"):
+    def _install_into_kim_api_from_kimkit(kim_id, install_locality='user'):
         """Helper method to install a potential from within its
         designated directory in the KIMkit repository. Potential is
         assumed to have all required files already saved with it.
