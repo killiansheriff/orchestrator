@@ -362,6 +362,7 @@ class HPCWorkflow(Workflow, ABC):
         nodes: Optional[int] = 1,
         tasks: Optional[int] = 1,
         tasks_per_node: Optional[int] = 1,
+        qos: Optional[str] = 'normal',
         wait_freq: Optional[int] = 60,
         **kwargs,
     ):
@@ -399,11 +400,12 @@ class HPCWorkflow(Workflow, ABC):
         self.default_nodes = nodes
         self.default_tasks = tasks
         self.default_tasks_per_node = tasks_per_node
+        self.default_qos = qos
         self.unknown_job_id = 1000
         self.new_unknown_id = False
 
         # value in seconds
-        self.synch_check_frequency = wait_freq
+        self.synch_check_frequency = int(wait_freq)
         super().__init__(**kwargs)
 
     @staticmethod

@@ -1,3 +1,4 @@
+import shutil
 from os import system, PathLike
 from typing import Optional, Union
 from .workflow_base import Workflow, JobStatus
@@ -10,7 +11,8 @@ class LocalWF(Workflow):
     Workflow manager for execution in the local environment (i.e. login node)
 
     Responsibilities include directory creation, job creation, job status
-    checking.
+    checking. Can run with mpi tasks if tasks are set in job_details, but no
+    default parallel behavior is set.
     """
 
     def __init__(self, **kwargs):
@@ -115,6 +117,7 @@ class LocalWF(Workflow):
         # check inputs and provide information to user
         synchronous = job_details.get('synchronous', True)
         dependencies = job_details.get('dependencies', [])
+        tasks = job_details.get('tasks')
         extra_args = job_details.get('extra_args', {})
 
         if not synchronous:
@@ -140,10 +143,22 @@ class LocalWF(Workflow):
             job_can_run = False
             exit_code = 'empty command'
 
+        if tasks is not None:
+            mpi = None
+            mpi_list = ['mpirun', 'mpiexec', 'srun']
+            for mpi_exec in mpi_list:
+                if shutil.which(mpi_exec):
+                    mpi = mpi_exec
+            if mpi:
+                command = f'{mpi} -n {tasks} {command}'
+            elif mpi is None:
+                raise RuntimeError('`tasks` was set in job_details but could '
+                                   f'not find {mpi_list} in the environment.')
+
         if job_can_run:
             self.logger.info(f'Spawning job with ID: {calc_id}')
             exit_code = system(
-                f'(cd {run_path}; {command} >> local_wf_stdout.log)')
+                f'(cd {run_path}; {command} 2>> local_wf_stdout.log)')
             self.logger.info(f'Job {calc_id} execution completed')
 
         job_status = JobStatus(run_path, 'done', exit_code)
