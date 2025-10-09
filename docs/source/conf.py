@@ -49,6 +49,7 @@ autodoc_mock_imports = [
     'numpy',
     'kimpy',
     'ase',
+    'pymatgen',
     'kliff',
     'colabfit',
     'kimkit',

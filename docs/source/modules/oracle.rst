@@ -28,8 +28,57 @@ All of the input parameters can be set within the same python script and passed
 to the respective functions. To increase readability, many of the code input
 parameters may be saved to a separate json file. Utility functions found in
 :class:`~orchestrator.utils.setup_input` can be used to pull the appropriate
-sections. Two different examples using :class:`~.EspressoOracle` and
+sections. Three different examples using :class:`~.VaspOracle`, :class:`~.EspressoOracle`, and
 :class:`~.AiidaEspressoOracle` are provided below.
+
+.. dropdown:: VaspOracle JSON example
+
+   .. code-block:: json
+
+      {
+         "oracle":{
+            "oracle_type":"VASP",
+            "oracle_args":{
+               "code_path":"<VASP_PATH>"
+            },
+            "extra_input_args":{
+               "incar": {
+                  "ENCUT": 250,
+                  "PREC": "ACCURATE",
+                  "EDIFF": 1E-4,
+                  "LORBIT": 11,
+                  "ISMEAR": 0,
+                  "SIGMA": 0.1,
+                  "GGA": "PS",
+                  "KPAR": 1,
+                  "NCORE": 1,
+                  "NELM": 500
+               },
+            },
+            "job_details":{
+               "synchronous":false,
+               "walltime":5
+            }
+         },
+         "workflow":{
+            "workflow_type":"<ASYNCH_WORKFLOW>",
+            "workflow_args":{
+               "root_directory":"./oracle",
+               "queue":"<HPC_QUEUE>",
+               "account":"<HPC_ACCOUNT>",
+               "nodes":"<NUM_NODES>",
+               "tasks":"<NUM_TASKS>",
+               "wait_freq":60
+            }
+         },
+         "storage":{
+            "storage_type":"COLABFIT",
+            "storage_args":{
+               "credential_file":"<STORAGE_CREDENTIAL_PATH>"
+            }
+         }
+      }
+
 
 .. dropdown:: EspressoOracle JSON example
 
@@ -214,6 +263,7 @@ Inheritance Graph
 
 .. inheritance-diagram:: orchestrator.oracle.factory
    orchestrator.oracle.espresso
+   orchestrator.oracle.vasp
    orchestrator.oracle.kim
    orchestrator.oracle.lammps
    orchestrator.oracle.aiida.vasp

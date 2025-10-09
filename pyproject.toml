@@ -29,7 +29,7 @@ version = "0.0.6"
 requires-python = ">= 3.10"
 dependencies = [
     "ase==3.25.0",
-    "colabfit-kit",
+    "colabfit-kit>=0.0.10",
     "fitsnap3 @ git+https://github.com/FitSNAP/FitSNAP.git",
     "furo",
     "h5py==3.13.0",
@@ -39,8 +39,9 @@ dependencies = [
     "lmdb",
     "pandas==2.2.3",
     "pre-commit",
+    "pymatgen",
     "pytest==8.3.5",
-    "quests == 2025.09.29",
+    "quests==2025.09.29",
     "scikit-learn==1.6.1",
     "scipy==1.15.2",
     "sphinx",

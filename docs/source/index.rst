@@ -52,6 +52,7 @@ Release
    :caption: Release Information
 
    release
+   GitHub Repository <https://github.com/LLNL/orchestrator>
 
 Index
 -----

@@ -51,6 +51,14 @@ Espresso
    :undoc-members:
    :show-inheritance:
 
+VASP
+^^^^
+
+.. automodule:: orchestrator.oracle.vasp
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 KIM
 ^^^
 

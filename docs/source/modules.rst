@@ -65,6 +65,7 @@ Orchestrator Inheritance Graph
    orchestrator.oracle.aiida.espresso
    orchestrator.oracle.aiida.vasp
    orchestrator.oracle.espresso
+   orchestrator.oracle.vasp
    orchestrator.oracle.factory
    orchestrator.oracle.kim
    orchestrator.oracle.lammps

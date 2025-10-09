@@ -72,7 +72,7 @@ class OracleBuilder(ModuleBuilder):
             case 'LAMMPSSnap':
                 from .lammps import LAMMPSSnapOracle
                 try:
-                    oracle_factory.add_new_module('LAMMPSnap',
+                    oracle_factory.add_new_module('LAMMPSSnap',
                                                   LAMMPSSnapOracle)
                 except ModuleAlreadyInFactoryError:
                     pass
@@ -80,6 +80,12 @@ class OracleBuilder(ModuleBuilder):
                 from .kim import KIMOracle
                 try:
                     oracle_factory.add_new_module('KIM', KIMOracle)
+                except ModuleAlreadyInFactoryError:
+                    pass
+            case 'VASP':
+                from .vasp import VaspOracle
+                try:
+                    oracle_factory.add_new_module('VASP', VaspOracle)
                 except ModuleAlreadyInFactoryError:
                     pass
             case 'AiiDA-QE':
