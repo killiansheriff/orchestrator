@@ -22,7 +22,7 @@ copyright = '2025, Lawrence Livermore National Laboratory'
 author = 'IAP UQ Thrust 4 Team'
 
 # The full version, including alpha/beta/rc tags
-release = '0.5'
+release = '0.6'
 
 # -- General configuration ---------------------------------------------------
 
