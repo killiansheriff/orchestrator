@@ -1,5 +1,6 @@
 import numpy as np
-from os import system, PathLike
+import os
+import glob
 from os.path import isfile, abspath
 from ase import Atoms
 from ase.io import read
@@ -25,7 +26,7 @@ class LAMMPSOracle(Oracle):
 
     def __init__(
         self,
-        code_path: Union[str, PathLike],
+        code_path: Union[str, os.PathLike],
         potential: str,
         **kwargs,
     ):
@@ -266,7 +267,11 @@ class LAMMPSKIMOracle(LAMMPSOracle):
         atoms.info[STRESS_KEY] = stress
         atoms.info[METADATA_KEY] = {
             'data_source': [abspath(force_file),
-                            abspath(energy_file)]
+                            abspath(energy_file)],
+            'parameters': {
+                'code': {},
+                'universal': {}
+            }
         }
         return atoms
 
@@ -314,10 +319,14 @@ class LAMMPSSnapOracle(LAMMPSOracle):
             input_args = {}
         model_path = input_args.get('model_path')
         if model_path is not None:
-            model_path = model_path.rstrip('/')
-            if model_path.split('/')[-1] != self.potential:
-                model_path += f'/{self.potential}'
-            system(f'ln -s `realpath {model_path}`* ./{run_path}/')
+            for file_path in glob.glob(os.path.join(model_path, '*')):
+                if self.potential in file_path:
+                    filename = os.path.basename(file_path)
+                    target = os.path.join(run_path, filename)
+                    # Remove existing symlink or file if present
+                    if os.path.lexists(target):
+                        os.remove(target)
+                    os.symlink(os.path.abspath(file_path), target)
 
         # first write input file
         elements = ''
@@ -416,6 +425,10 @@ class LAMMPSSnapOracle(LAMMPSOracle):
         atoms.info[STRESS_KEY] = stress
         atoms.info[METADATA_KEY] = {
             'data_source': [abspath(force_file),
-                            abspath(energy_file)]
+                            abspath(energy_file)],
+            'parameters': {
+                'code': {},
+                'universal': {}
+            }
         }
         return atoms

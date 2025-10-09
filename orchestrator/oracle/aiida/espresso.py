@@ -111,7 +111,7 @@ class AiidaEspressoOracle(AiidaOracle):
         new_metadata = {
             'generated_by': user,
             'data_source': f'AiiDA pk<{pk}>',
-            'code_parameters': {
+            'parameters': {
                 'code': inputs,
                 'universal': universal
             }

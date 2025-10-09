@@ -133,6 +133,12 @@ class AiidaOracle(Oracle):
                 'The parameters arg is required to provide inputs to the '
                 'specified AiidaOracle.')
 
+        # If any other values are in input_args, set them as well.
+        # Will be able to set other specific values needed for aiida oracles.
+        input_copy = input_args.copy()
+        for key in input_copy.keys():
+            setattr(self, key, input_args.pop(key))
+
         # Get the builder from the workchain
         workchain = self.get_workchain(self.workchain)
 
@@ -163,6 +169,9 @@ class AiidaOracle(Oracle):
 
             builder = self._oracle_specific_inputs(workchain, config,
                                                    modified_job_details)
+
+            if 'clean_workdir' in dir(builder):
+                builder.clean_workdir = self.clean_workdir
 
             pk = workflow.submit_job(builder, modified_job_details)
             if self.group:
@@ -243,7 +252,9 @@ class AiidaOracle(Oracle):
                 check_uniqueness=True,
             )
         elif dataset_name:
-            dataset_handle = storage._get_id_from_name(dataset_name)
+            unique = storage.check_if_dataset_name_unique(dataset_name)
+            if not unique:
+                dataset_handle = storage._get_id_from_name(dataset_name)
         else:
             if dataset_handle[:3] != 'DS_':
                 raise ValueError(
@@ -413,6 +424,7 @@ class AiidaOracle(Oracle):
             options['max_wallclock_seconds'] = job_details.get(
                 'walltime', self.workflow.default_walltime) * 60
             options['resources'] = resources
+            options['qos'] = job_details.get('qos', self.workflow.default_qos)
 
         return options
 

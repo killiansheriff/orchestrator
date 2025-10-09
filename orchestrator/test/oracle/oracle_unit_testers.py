@@ -45,7 +45,7 @@ def oracle_unit_test(input_file: str) -> bool:
 
     calc_ids = oracle.run(
         oracle_inputs.get('path_type'),
-        oracle_inputs.get('extra_input_args'),
+        oracle_inputs.get('extra_input_args', {}),
         configs,
         workflow=workflow,
         job_details=oracle_inputs.get('job_details', {}),

@@ -1,9 +1,17 @@
 import os
+import re
 import glob
 import numpy as np
+from datetime import datetime
 from ase.io import read, write
+from typing import Optional
 
-from orchestrator.utils.data_standard import ENERGY_KEY, FORCES_KEY, STRESS_KEY
+from orchestrator.utils.data_standard import (ENERGY_KEY, FORCES_KEY,
+                                              STRESS_KEY, METADATA_KEY)
+from orchestrator.oracle.aiida.espresso import AiidaEspressoOracle
+from orchestrator.oracle.aiida.vasp import AiidaVaspOracle
+from orchestrator.storage import Storage
+from orchestrator.utils.exceptions import DatasetDoesNotExistError
 
 
 def ase_glob_read(root_dir, file_ext='.xyz', file_format='extxyz'):
@@ -97,3 +105,113 @@ def sort_configs_and_tag_atoms(list_of_atoms, id_key='co-id'):
         counter += n
 
     return sorted_atoms
+
+
+def read_in_external_calculations(
+    folder_paths: list[str],
+    code: str,
+    input_file: str,
+    outfile: str,
+    storage: Storage,
+    dataset_name: Optional[str] = None,
+    dataset_handle: Optional[str] = None,
+):
+    """
+    Helper fucntion for ingesting data generated outside Orchestrator
+
+    :param folder_paths: List containing the path to each folder with
+        individual calculations.
+    :param code: Which code was used to calculate. Currently, VASP and QE
+        are supported. Default: VASP.
+    :param input_file: Name of the file to which calculation settings are
+        stored. For VASP, this is the INCAR and for QE it is typically *.in
+        was stored.
+    :param outfile: Name of the file to which calculation information is
+        stored. For VASP, this is the OUTCAR and for QE it is where the output
+        was stored (typically *.out).
+    :param storage: Storage module where the dataset should be saved
+    :param dataset_name: name of the new dataset in storage to upload to
+    :param dataset_handle: handle of an existing dataset to append the data to.
+        Will be used in place of dataset_name if provided.
+    """
+
+    # Check if paths are correct.
+    incorrect = []
+    for path in folder_paths:
+        if not os.path.isdir(path):
+            incorrect.append(path)
+    if incorrect:
+        raise ValueError(
+            f'The following paths were incorrect: {incorrect}. Correct '
+            'them and try again.')
+
+    configs = []
+    for path in folder_paths:
+        match code:
+            case 'VASP':
+                atoms = safe_read(f'{path}/{outfile}', format='vasp-out')
+                # Will expect the incar to be in the same location.
+                parameters = {}
+                with open(f'{path}/{input_file}', 'r') as infile:
+                    for line in infile:
+                        split = line.strip("\n").split("=")
+                        parameters[split[0]] = split[1]
+                universal = AiidaVaspOracle.translate_universal_parameters(
+                    parameters)
+            case 'QE':
+                atoms = safe_read(outfile, format='espresso-out')
+                parameters = {}
+                with open(input_file, 'r') as f:
+                    text = f.read()
+
+                namelists = re.findall(r'&(\w+)(.*?)/', text, re.DOTALL)
+                for name, body in namelists:
+                    params = dict(re.findall(r'(\w+)\s*=\s*([^\n,]+)', body))
+                    parameters[name] = {
+                        k.strip(): v.strip()
+                        for k, v in params.items()
+                    }
+
+                universal = AiidaEspressoOracle.translate_universal_parameters(
+                    parameters)
+
+        dataset_metadata = {
+            'parameters': {
+                'code': parameters,
+                'universal': universal
+            }
+        }
+        atoms.info[METADATA_KEY] = dataset_metadata
+        configs.append(atoms)
+
+    current_date = datetime.today().strftime('%Y-%m-%d')
+    if dataset_name is None:
+        # no names or IDs provided, make new dataset name
+        dataset_name = storage.generate_dataset_name(
+            f'{code}_parsed_dataset',
+            f'{current_date}',
+            check_uniqueness=True,
+        )
+    elif dataset_name:
+        # only dataset name provided
+        try:
+            # since extracted, we do not need to validate form
+            dataset_handle = storage._get_id_from_name(dataset_name)
+        except DatasetDoesNotExistError:
+            pass
+    else:
+        # dataset handle provided, ensure it is of correct form
+        if dataset_handle[:3] != 'DS_':
+            raise ValueError(
+                'dataset handles should be in format DS_************_#')
+
+    if dataset_handle:
+        # handle is a colabfit ID, dataset exists
+        new_handle = storage.add_data(dataset_handle, configs,
+                                      dataset_metadata)
+    else:
+        # handle is a name, create new dataset
+        new_handle = storage.new_dataset(dataset_name, configs,
+                                         dataset_metadata)
+
+    return new_handle

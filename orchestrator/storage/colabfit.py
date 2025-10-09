@@ -224,7 +224,7 @@ class ColabfitStorage(Storage):
         data.extend(existing_data)
 
         parameters = {}
-        keys = [ENERGY_KEY, FORCES_KEY, STRESS_KEY]
+        keys = ['energy', 'atomic-forces', 'cauchy-stress']
         if any(key in existing_property_map.keys() for key in keys):
             parameters = dataset_metadata.get('parameters', None)
             if not parameters:
@@ -248,7 +248,7 @@ class ColabfitStorage(Storage):
 
     def new_dataset(
         self,
-        dataset_handle: str,
+        dataset_name: str,
         data: list[Atoms],
         dataset_metadata: Optional[dict] = None,
         strict: bool = True,
@@ -257,10 +257,10 @@ class ColabfitStorage(Storage):
         Create a new dataset with the provided data and metadata
 
         The new dataset will have a human readable name specificed by
-        dataset_handle and will ingest the data and metadata provided.
+        dataset_name and will ingest the data and metadata provided.
 
-        :param dataset_handle: name of the dataset to be created
-        :type dataset_handle: str
+        :param dataset_name: name of the dataset to be created
+        :type dataset_name: str
         :param data: list of ASE.Atoms objects containing the configurations
             and associated properties to add to the database. Note that
             configuration-specific metadata should be stored under the
@@ -279,13 +279,13 @@ class ColabfitStorage(Storage):
         :rtype: str
         """
         # check if dataset_handle (i.e. name) alrady exists
-        if not self.check_if_dataset_name_unique(dataset_handle):
-            existing_ds = self._get_id_from_name(dataset_handle)
-            self.logger.info(f'{dataset_handle} already exists in the database'
+        if not self.check_if_dataset_name_unique(dataset_name):
+            existing_ds = self._get_id_from_name(dataset_name)
+            self.logger.info(f'{dataset_name} already exists in the database'
                              f' as {existing_ds}, cannot create new dataset '
                              'with this name!')
             raise DuplicateDatasetNameError(
-                f'{dataset_handle} exists as {existing_ds}')
+                f'{dataset_name} exists as {existing_ds}')
 
         self.check_example_config(data[0])  # sanity check
 
@@ -307,7 +307,7 @@ class ColabfitStorage(Storage):
         # If any of the following keys are in property_map then we require
         # that there are code and universal parameters.
         parameters = {}
-        keys = [ENERGY_KEY, FORCES_KEY, STRESS_KEY]
+        keys = ['energy', 'atomic-forces', 'cauchy-stress']
         if any(key in self.property_map.keys() for key in keys):
             parameters = dataset_metadata.get('parameters',
                                               self.default_parameters)
@@ -320,7 +320,7 @@ class ColabfitStorage(Storage):
             new_dataset_handle = (
                 self.database_client.insert_data_and_create_datset(
                     data,
-                    name=dataset_handle,
+                    name=dataset_name,
                     authors=authors,
                     description=description,
                     prop_map=self.property_map,
@@ -334,13 +334,13 @@ class ColabfitStorage(Storage):
             new_dataset_handle = (
                 self.database_client.insert_data_and_create_datset(
                     data,
-                    name=dataset_handle,
+                    name=dataset_name,
                     authors=authors,
                     description=description,
                     prop_map=self.property_map,
                     parameters=parameters,
                 ))
-        self.logger.info(f'Created dataset {dataset_handle} with {len(data)} '
+        self.logger.info(f'Created dataset {dataset_name} with {len(data)} '
                          f' configs, ID: {new_dataset_handle}')
         return new_dataset_handle
 
@@ -607,7 +607,7 @@ class ColabfitStorage(Storage):
 
         # If any of the following keys are in property_map then we require
         # that there are code and universal parameters.
-        keys = [ENERGY_KEY, FORCES_KEY, STRESS_KEY]
+        keys = ['energy', 'atomic-forces', 'cauchy-stress']
         if any(key in property_map.keys() for key in keys):
             pkeys = parameters.keys()
             if 'code' not in pkeys or 'universal' not in pkeys:

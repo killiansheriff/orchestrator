@@ -28,7 +28,6 @@ class AiidaVaspOracle(AiidaOracle):
                  workchain: str = None,
                  settings: dict = None,
                  clean_workdir: bool = True,
-                 relax: dict = None,
                  group: str = None,
                  **kwargs: dict):
         """
@@ -39,8 +38,6 @@ class AiidaVaspOracle(AiidaOracle):
         :param workchain: Name of the workchain in AiiDA for VASP.
             e.g. vasp.relax
         :param settings: Controls the parsing behavior and other attributes.
-        :param relax: Dictionary containing relax options for the VASP
-            workchain.
         :param clean_workdir: Will clean the working directory on the remote
             machine if True.
         :param group: Creates a group node in AiiDA to store all of the
@@ -53,7 +50,6 @@ class AiidaVaspOracle(AiidaOracle):
                          **kwargs)
 
         self.settings = settings
-        self.relax = relax
         self.kwargs = kwargs
 
     def parse_for_storage(
@@ -126,7 +122,7 @@ class AiidaVaspOracle(AiidaOracle):
         new_metadata = {
             'generated_by': user,
             'data_source': f'AiiDA pk<{pk}>',
-            'code_parameters': {
+            'parameters': {
                 'code': inputs,
                 'universal': universal
             },
@@ -159,7 +155,10 @@ class AiidaVaspOracle(AiidaOracle):
         builder = workchain.get_builder()
 
         builder.vasp.code = self.get_code(self.code_str)
-        builder.vasp.parameters = self.get_parameters(self.parameters)
+        parameters = self.get_parameters(self.parameters)
+        if 'incar' not in parameters.keys():
+            parameters = {'incar': parameters}
+        builder.vasp.parameters = parameters
 
         options = self.get_options(job_details, builder.vasp.code.computer)
         builder.vasp.options = Dict(options)
