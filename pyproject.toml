@@ -1,79 +1,120 @@
 [build-system]
-requires = ["setuptools >= 61.0"]
+requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "orchestrator"
-description = "IAP-UQ Orchestrator for training, deploying, and analyzing IAPs"
-readme = "README.md"
-authors = [
-    {name = "Kyle Bushick", email="bushick1@llnl.gov"},
-    {name = "Josh Vita", email="vita1@llnl.gov"},
-    {name = "Claire Waters", email="bwaters@umn.edu"},
-    {name = "Fikret Aydin", email="aydin1@llnl.gov"},
-    {name = "Logan Williams", email="williams332@llnl.gov"},
-    {name = "Eric Fuemmeler", email="efuemmel@umn.edu"},
-    {name = "Nathan Keilbart", email="keilbart1@llnl.gov"},
-    {name = "Ilia Nikiforov", email="nikif002@umn.edu"},
-    {name = "Amit Gupta", email="gupta839@umn.edu"},
-    {name = "ShinYoung Kang", email="kang10@llnl.gov"},
-    {name = "Yonatan Kurniawan", email="yonatank@student.byu.edu"},
-    {name = "Jared Stimac", email="stimac1@llnl.gov"},
-    {name = "Huy Pham", email="pham20@llnl.gov"},
-    {name = "Marcos Felipe Calegari Andrade", email="calegariandr1@llnl.gov"},
-    {name = "Tomas Oppelstrup", email="oppelstrup2@llnl.gov"},
-    {name = "Ellad Tadmor", email="tadmor@umn.edu"},
-    {name = "Vince Lordi", email="lordi2@llnl.gov"},
-]
 version = "0.0.6"
-requires-python = ">= 3.10"
+description = "IAP-UQ Orchestrator for training, deploying, and analyzing interatomic potentials (IAPs)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }  # <-- change if different
+keywords = ["materials", "interatomic-potentials", "machine-learning", "openkim", "workflow"]
+authors = [
+  {name = "Kyle Bushick", email="bushick1@llnl.gov"},
+  {name = "Josh Vita", email="vita1@llnl.gov"},
+  {name = "Claire Waters", email="bwaters@umn.edu"},
+  {name = "Fikret Aydin", email="aydin1@llnl.gov"},
+  {name = "Logan Williams", email="williams332@llnl.gov"},
+  {name = "Eric Fuemmeler", email="efuemmel@umn.edu"},
+  {name = "Nathan Keilbart", email="keilbart1@llnl.gov"},
+  {name = "Ilia Nikiforov", email="nikif002@umn.edu"},
+  {name = "Amit Gupta", email="gupta839@umn.edu"},
+  {name = "ShinYoung Kang", email="kang10@llnl.gov"},
+  {name = "Yonatan Kurniawan", email="yonatank@student.byu.edu"},
+  {name = "Jared Stimac", email="stimac1@llnl.gov"},
+  {name = "Huy Pham", email="pham20@llnl.gov"},
+  {name = "Marcos Felipe Calegari Andrade", email="calegariandr1@llnl.gov"},
+  {name = "Tomas Oppelstrup", email="oppelstrup2@llnl.gov"},
+  {name = "Ellad Tadmor", email="tadmor@umn.edu"},
+  {name = "Vince Lordi", email="lordi2@llnl.gov"},
+]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
+
 dependencies = [
-    "ase==3.25.0",
-    "colabfit-kit>=0.0.10",
-    "fitsnap3 @ git+https://github.com/FitSNAP/FitSNAP.git",
-    "furo",
-    "h5py==3.13.0",
-    "kim-edn==1.4.1",
-    "kimpy==2.1.3",
-    "kliff @ git+https://github.com/openkim/kliff",
-    "lmdb",
-    "pandas==2.2.3",
-    "pre-commit",
-    "pymatgen",
-    "pytest==8.3.5",
-    "quests==2025.09.29",
-    "scikit-learn==1.6.1",
-    "scipy==1.15.2",
-    "sphinx",
-    "sphinx-copybutton",
-    "sphinx-autodoc-typehints",
-    "sphinx-design",
-    "torch==2.4.0",
-    "kimkit==1.1.0"
+  # Core runtime deps only
+  "ase",
+  "colabfit-kit>=0.0.10",
+  "h5py",
+  # "kim-edn",
+  # "kimpy",
+  # "kimkit",
+  "lmdb",
+  "pandas",
+  "pymatgen",
+  "scikit-learn",
+  "scipy",
+  "torch",
+  "quests",
+
+  # VCS deps: pin to a commit for reproducibility
+  # Replace <COMMIT_SHA> with a real hash once chosen.
+  "fitsnap3 @ git+https://github.com/FitSNAP/FitSNAP.git@<COMMIT_SHA>",
+  "kliff @ git+https://github.com/openkim/kliff@<COMMIT_SHA>",
 ]
 
 [project.optional-dependencies]
-LTAU = [
-    "faiss-cpu == 1.8.0",
-    "ltau-ff @ git+https://github.com/LLNL/ltau-ff/",
-]
-FIMMATCHING = [
-    "numdifftools",
-    "sdpa-python >= 0.2.2",
-    "cvxpy >= 1.3",
-    "information-matching @ git+https://github.com/yonatank93/information-matching.git"
-]
-AIIDA = [
-    "aiida-core==2.6.2",
-    "aiida-vasp==4.1.0",
-    "aiida-quantumespresso==4.7.0",
-    "aiida-pseudo==1.6.0"
+# Developer experience
+dev = [
+  "pre-commit>=3.8",
+  "ruff>=0.6",
+  "mypy>=1.11",
+  "types-setuptools",
 ]
 
-[tool.setuptools.packages.find]
-exclude = ["public"]
+test = [
+  "pytest==8.3.5",
+  "pytest-cov>=5",
+]
+
+docs = [
+  "furo",
+  "sphinx>=7",
+  "sphinx-copybutton",
+  "sphinx-autodoc-typehints",
+  "sphinx-design",
+]
+
+ltau = [
+  "faiss-cpu==1.8.0",
+  "ltau-ff @ git+https://github.com/LLNL/ltau-ff/@<COMMIT_SHA>",
+]
+
+fimmatching = [
+  "numdifftools",
+  "sdpa-python>=0.2.2",
+  "cvxpy>=1.3",
+  "information-matching @ git+https://github.com/yonatank93/information-matching.git@<COMMIT_SHA>",
+]
+
+aiida = [
+  "aiida-core==2.6.2",
+  "aiida-vasp==4.1.0",
+  "aiida-quantumespresso==4.7.0",
+  "aiida-pseudo==1.6.0",
+]
+
+# convenience meta-extra
+all = [
+  "orchestrator[dev,test,docs,ltau,fimmatching,aiida]",
+]
 
 [project.urls]
 Homepage = "https://github.com/LLNL/orchestrator"
 Documentation = "https://orchestrator-docs.readthedocs.io/en/latest/index.html"
 Repository = "https://github.com/LLNL/orchestrator"
+Issues = "https://github.com/LLNL/orchestrator/issues"
+
+[tool.setuptools]
+# If you use a src/ layout, add: package-dir = {"" = "src"}
+include-package-data = true
+
+[tool.setuptools.packages.find]
+exclude = ["public", "tests", "docs", "examples"]
