@@ -95,10 +95,10 @@ fimmatching = [
 ]
 
 aiida = [
-  "aiida-core==2.6.2",
-  "aiida-vasp==4.1.0",
-  "aiida-quantumespresso==4.7.0",
-  "aiida-pseudo==1.6.0",
+  "aiida-core",
+  "aiida-vasp",
+  "aiida-quantumespresso",
+  "aiida-pseudo",
 ]
 
 # convenience meta-extra
