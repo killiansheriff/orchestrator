@@ -56,8 +56,8 @@ dependencies = [
 
   # VCS deps: pin to a commit for reproducibility
   # Replace <COMMIT_SHA> with a real hash once chosen.
-  "fitsnap3 @ git+https://github.com/FitSNAP/FitSNAP.git@<COMMIT_SHA>",
-  "kliff @ git+https://github.com/openkim/kliff@<COMMIT_SHA>",
+  "fitsnap3 @ git+https://github.com/FitSNAP/FitSNAP.git",
+  "kliff @ git+https://github.com/openkim/kliff",
 ]
 
 [project.optional-dependencies]
