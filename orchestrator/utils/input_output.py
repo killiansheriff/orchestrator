@@ -1,14 +1,19 @@
+import glob
 import os
 import re
-import glob
-import numpy as np
 from datetime import datetime
-from ase.io import read, write
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
-from orchestrator.utils.data_standard import (ENERGY_KEY, FORCES_KEY,
-                                              STRESS_KEY, METADATA_KEY)
+import numpy as np
+from ase.io import read, write
+
 from orchestrator.storage import Storage
+from orchestrator.utils.data_standard import (
+    ENERGY_KEY,
+    FORCES_KEY,
+    METADATA_KEY,
+    STRESS_KEY,
+)
 from orchestrator.utils.exceptions import DatasetDoesNotExistError
 
 if TYPE_CHECKING:
@@ -216,6 +221,11 @@ def read_in_external_calculations(
         new_handle = storage.add_data(dataset_handle, configs,
                                       dataset_metadata)
     else:
+        # handle is a name, create new dataset
+        new_handle = storage.new_dataset(dataset_name, configs,
+                                         dataset_metadata)
+
+    return new_handle
         # handle is a name, create new dataset
         new_handle = storage.new_dataset(dataset_name, configs,
                                          dataset_metadata)
