@@ -226,8 +226,3 @@ def read_in_external_calculations(
                                          dataset_metadata)
 
     return new_handle
-        # handle is a name, create new dataset
-        new_handle = storage.new_dataset(dataset_name, configs,
-                                         dataset_metadata)
-
-    return new_handle
