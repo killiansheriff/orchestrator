@@ -1,19 +1,21 @@
-from abc import ABC, abstractmethod
 import os
-import tarfile
 import shutil
 import subprocess
-import kim_edn
+import tarfile
 import tempfile
+from abc import ABC, abstractmethod
+from os.path import basename
+from typing import List, Optional
+
+import kim_edn
 from ase import Atoms
 from ase.calculators.kim.kim import KIM
-from typing import List, Optional
-from os.path import basename
-from kimkit import models, kimcodes
-from kimkit.src import mongodb
+from kimkit import kimcodes, models
 from kimkit.src import config as cf
-from ..utils.recorder import Recorder
+from kimkit.src import mongodb
+
 from ..utils.exceptions import InstallPotentialError
+from ..utils.recorder import Recorder
 from ..workflow.factory import workflow_builder
 
 CMAKELISTS_TEMPLATE = """
@@ -1693,4 +1695,5 @@ class Potential(Recorder, ABC):
         """
         return the relevant hyperparameters of the potential
         """
+        pass
         pass

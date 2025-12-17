@@ -1,10 +1,12 @@
 from abc import ABC, abstractmethod
 from ..utils.recorder import Recorder
-from typing import Optional, Dict, Any, Union
+from typing import Optional, Dict, Any, Union, TYPE_CHECKING
 from ..workflow.factory import workflow_builder
 from ..workflow import Workflow
 from ..storage import Storage
-from ..potential import Potential
+
+if TYPE_CHECKING:
+    from ..potential import Potential
 
 
 class TargetProperty(Recorder, ABC):
@@ -63,7 +65,7 @@ class TargetProperty(Recorder, ABC):
         self,
         iter_num: int = 0,
         modified_params: Optional[Dict[str, Any]] = None,
-        potential: Optional[Union[str, Potential]] = None,
+        potential: Optional[Union[str, "Potential"]] = None,
         workflow: Optional[Workflow] = None,
         storage: Optional[Storage] = None,
         **kwargs,
@@ -118,7 +120,7 @@ class TargetProperty(Recorder, ABC):
         self,
         n_calc: int,
         modified_params: Optional[Dict[str, Any]] = None,
-        potential: Optional[Union[str, Potential]] = None,
+        potential: Optional[Union[str, "Potential"]] = None,
         workflow: Optional[Workflow] = None,
     ):
         """

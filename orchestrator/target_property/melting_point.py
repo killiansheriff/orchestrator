@@ -4,9 +4,8 @@ import ase.io
 from ase import Atoms
 from glob import glob
 from os.path import getmtime, split, join
-from typing import Union, Optional, List, Dict, Any, Tuple
+from typing import Union, Optional, List, Dict, Any, Tuple, TYPE_CHECKING
 from ..simulator import simulator_builder
-from ..potential import Potential
 from ..utils.exceptions import AnalysisError, DensityOOBError
 from . import TargetProperty
 from ..workflow import Workflow
@@ -14,6 +13,9 @@ from ..storage import Storage
 from orchestrator.target_property.analysis import AnalyzeLammpsLog
 from ..utils.restart import restarter
 from ..utils.isinstance import isinstance_no_import
+
+if TYPE_CHECKING:
+    from ..potential import Potential
 
 
 class MeltingPoint(TargetProperty):
@@ -198,7 +200,7 @@ class MeltingPoint(TargetProperty):
         self,
         iter_num: int = 0,
         modified_params: Optional[Dict[str, Any]] = None,
-        potential: Optional[Union[str, Potential]] = None,
+        potential: Optional[Union[str, "Potential"]] = None,
         workflow: Optional[Workflow] = None,
         storage: Optional[Storage] = None,
         **kwargs,
@@ -708,7 +710,7 @@ class MeltingPoint(TargetProperty):
         self,
         n_calc: int,
         modified_params: Optional[Dict[str, Any]] = None,
-        potential: Optional[Union[str, Potential]] = None,
+        potential: Optional[Union[str, "Potential"]] = None,
         workflow: Optional[Workflow] = None,
     ):
         """

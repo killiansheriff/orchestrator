@@ -10,3 +10,4 @@ public/
 Public/
 .DS_store
 .ipynb_checkpoints/
+*.test_venv/

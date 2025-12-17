@@ -4,14 +4,16 @@ import glob
 import numpy as np
 from datetime import datetime
 from ase.io import read, write
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from orchestrator.utils.data_standard import (ENERGY_KEY, FORCES_KEY,
                                               STRESS_KEY, METADATA_KEY)
-from orchestrator.oracle.aiida.espresso import AiidaEspressoOracle
-from orchestrator.oracle.aiida.vasp import AiidaVaspOracle
 from orchestrator.storage import Storage
 from orchestrator.utils.exceptions import DatasetDoesNotExistError
+
+if TYPE_CHECKING:
+    from orchestrator.oracle.aiida.espresso import AiidaEspressoOracle
+    from orchestrator.oracle.aiida.vasp import AiidaVaspOracle
 
 
 def ase_glob_read(root_dir, file_ext='.xyz', file_format='extxyz'):
@@ -156,6 +158,8 @@ def read_in_external_calculations(
                     for line in infile:
                         split = line.strip("\n").split("=")
                         parameters[split[0]] = split[1]
+                # Lazy import to avoid requiring aiida for non-aiida workflows
+                from orchestrator.oracle.aiida.vasp import AiidaVaspOracle
                 universal = AiidaVaspOracle.translate_universal_parameters(
                     parameters)
             case 'QE':
@@ -172,6 +176,8 @@ def read_in_external_calculations(
                         for k, v in params.items()
                     }
 
+                # Lazy import to avoid requiring aiida for non-aiida workflows
+                from orchestrator.oracle.aiida.espresso import AiidaEspressoOracle
                 universal = AiidaEspressoOracle.translate_universal_parameters(
                     parameters)
 
